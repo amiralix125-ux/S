@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>وینول قهرمان</title>
+
+<!-- آیکون قلب برای ظاهر بهتر -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@600;800&display=swap" rel="stylesheet" />
+
+<style>
+:root{
+    --glass-bg: rgba(255,255,255,.75);
+    --glass-bg-hover: rgba(255,255,255,.9);
+    --text: #555;
+    --heart-color: #ff69b4; /* صورتی ملایم و جذاب */
+}
+@media (prefers-color-scheme: dark){
+    :root{
+        --glass-bg: rgba(30,30,30,.6);
+        --glass-bg-hover: rgba(40,40,40,.8);
+        --text: #eee;
+    }
+    body{ background-color:#111; }
+}
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family:'Vazirmatn',sans-serif
+}
+
+body{
+    background:url('https://i.postimg.cc/QN73s9gb/IMG-20251230-WA0000.jpg')
+    center/100% 100% fixed no-repeat;
+    min-height:100vh;
+}
+
+.top-text{
+    position:fixed;
+    top:20px;
+    right:24px;
+    z-index:100;
+    padding:8px 14px;
+    border-radius:12px;
+    background:var(--glass-bg);
+    backdrop-filter:blur(6px);
+    color:var(--text);
+}
+.hero-word{font-weight:800}
+
+.search-container{
+    position:fixed;
+    top:68px;
+    right:24px;
+    z-index:100;
+    width:280px;
+    padding:8px 14px;
+    border-radius:12px;
+    background:var(--glass-bg);
+    backdrop-filter:blur(6px);
+}
+#gameSearch{
+    width:100%;
+    border:0;
+    outline:0;
+    background:transparent;
+    font-size:1rem;
+    color:var(--text)
+}
+
+.section{
+    width:90%;
+    max-width:1200px;
+    margin:140px auto 30px;
+}
+.section:nth-child(n+4) {
+    /* تنظیم مارجین بخش اصلی بازی‌ها که زیر بخش‌های فیکس شده می‌آید */
+    margin-top: 30px; 
+}
+.section h2{
+    margin-bottom:14px;
+    color:#ff9800
+}
+
+.games-grid{
+    /* استایل اصلی grid (برای لیست اصلی بازی‌ها) */
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+    gap:22px;
+}
+
+/* استایل جدید برای اسکرول افقی در بخش‌های ویژه */
+.games-grid.horizontal-scroll {
+    display: flex;
+    flex-wrap: nowrap; /* جلوگیری از شکستن خط */
+    overflow-x: auto; /* فعال کردن اسکرول افقی */
+    padding-bottom: 15px; /* فضا برای نوار اسکرول */
+    -webkit-overflow-scrolling: touch; /* بهبود اسکرول در iOS */
+    scrollbar-width: none; /* Firefox */
+}
+.games-grid.horizontal-scroll::-webkit-scrollbar {
+    display: none; /* Chrome, Safari */
+}
+
+.games-grid.horizontal-scroll .game-card {
+    flex-shrink: 0; /* مهم: کارت‌ها کوچک نشوند */
+    width: 200px; /* اندازه ثابت برای هر کارت در حالت اسکرول افقی */
+    margin-left: 15px; /* فاصله بین کارت‌ها */
+}
+/* تنظیم فاصله برای اولین آیتم در اسکرول افقی */
+.games-grid.horizontal-scroll .game-card:first-child {
+    margin-right: 22px; 
+}
+
+
+.game-card{
+    /* تغییر display به relative برای موقعیت دهی قلب */
+    position: relative; 
+    display:flex;
+    flex-direction: column;
+    align-items: center;
+    text-decoration:none;
+    text-align:center;
+    padding:22px;
+    border-radius:22px;
+
+    background:linear-gradient(
+        145deg,
+        rgba(255,255,255,0.35),
+        rgba(255,255,255,0.15)
+    );
+    backdrop-filter:blur(14px);
+    -webkit-backdrop-filter:blur(14px);
+
+    border:1.5px solid rgba(255,255,255,0.45);
+
+    color:var(--text);
+    font-weight:700;
+
+    box-shadow:
+        0 8px 20px rgba(0,0,0,.1),
+        inset 0 0 0.5px rgba(255,255,255,0.6);
+
+    transition:.25s;
+}
+.game-card:hover{
+    transform:translateY(-4px) scale(1.03);
+    background:linear-gradient(
+        145deg,
+        rgba(255,255,255,0.5),
+        rgba(255,255,255,0.25)
+    );
+}
+
+/* استایل برای بازی‌های منتخب و پرطرفدار */
+.top-game {
+    box-shadow:
+        0 8px 20px rgba(0,0,0,.1),
+        inset 0 0 0.5px rgba(255,255,255,0.6),
+        0 0 15px rgba(255, 215, 0, 0.4); /* سایه طلایی نرم و محو */
+}
+
+/* کی‌فریم برای انیمیشن چشم قلبی */
+@keyframes emoji-pop {
+    0% { transform: scale(1); opacity: 0.7; }
+    50% { transform: scale(1.4); opacity: 1; } /* بزرگتر می‌شود */
+    100% { transform: scale(1.2); opacity: 1; } /* کمی بزرگتر از حالت عادی می‌ماند */
+}
+
+/* استایل جدید برای دکمه قلب (اکنون ایموجی) */
+.favorite-btn {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background: none;
+    border: none;
+    font-size: 1.8rem; /* ایموجی بزرگ و قابل کلیک */
+    cursor: pointer;
+    padding: 5px;
+    z-index: 10; 
+    line-height: 1;
+    filter: grayscale(80%); /* کمرنگ و خاکستری در حالت عادی */
+    opacity: 0.6;
+    transition: filter 0.3s, opacity 0.3s, transform 0.2s;
+    pointer-events: all; 
+}
+.favorite-btn:hover {
+    transform: scale(1.3); /* کمی بزرگ‌تر در هاور */
+    filter: grayscale(0%); /* روشن‌تر در هاور */
+    opacity: 0.8;
+}
+.favorite-btn.is-favorite {
+    filter: grayscale(0%); /* کاملاً رنگی و زنده وقتی در علاقه‌مندی است */
+    opacity: 1;
+    animation: emoji-pop 0.3s ease-out forwards; /* انیمیشن پاپ */
+    transform: scale(1.2); /* مطمئن می‌شویم بعد از انیمیشن هم بزرگتر بماند */
+}
+.favorite-btn.is-favorite:hover {
+    transform: scale(1.4); /* حتی بزرگتر وقتی در علاقه‌مندی است و هاور شده */
+}
+
+
+mark{
+    background:#ffeb3b;
+    padding:0 4px;
+    border-radius:4px
+}
+</style>
+</head>
+
+<body>
+
+<div class="top-text">
+    بپر تو دنیای وینول <span class="hero-word">قهرمان 🎮</span>
+</div>
+
+<div class="search-container">
+    <input id="gameSearch" placeholder="🔍جستجو بازی هوشمند..." />
+</div>
+
+<!-- **بخش بازی‌های برتر** -->
+<div class="section" id="bestGamesSection">
+    <h2>🏆 بازی‌های برتر</h2>
+    <div class="games-grid horizontal-scroll" id="bestGames">
+        <!-- محتوا توسط جاوا اسکریپت بارگذاری می‌شود -->
+    </div>
+</div>
+
+<!-- بخش علاقمندی‌های من -->
+<div class="section" id="favoriteGamesSection" style="display:none">
+    <h2>❤️ علاقمندی‌های من</h2>
+    <div class="games-grid horizontal-scroll" id="favoriteGames"></div>
+</div>
+
+<!-- بخش پرطرفدارترین بازی‌ها -->
+<div class="section" id="topGamesSection" style="display:none">
+    <h2>🏆 پرطرفدارترین بازی‌ها</h2>
+    <div class="games-grid horizontal-scroll" id="topGames"></div>
+</div>
+
+<div class="section">
+    <!-- عنوان این بخش را به "همه بازی‌ها" تغییر دادم تا واضح‌تر باشد -->
+    <h2>همه بازی‌ها</h2>
+    <div class="games-grid" id="gamesGrid">
+        
+        <a href="بطری برگردون.html" class="game-card" data-game-name="بطری برگردون" data-game-img="https://i.postimg.cc/3JQDmKGj/copilot-image-1767252834834.png">
+            <button class="favorite-btn" title="افزودن به علاقمندی‌ها">😍</button>
+            <img src="https://i.postimg.cc/3JQDmKGj/copilot-image-1767252834834.png" alt="بطری برگردون" style="width: 100%; height: auto; border-radius: 10px; margin-bottom: 10px;" />
+            <span>بطری برگردون</span>
+        </a>
+        
+        <a href="بولینگ.html" class="game-card" data-game-name="بولینگ" data-game-img="https://i.postimg.cc/nz8pzC8r/copilot-image-1767251892832.png">
+            <button class="favorite-btn" title="افزودن به علاقمندی‌ها">😍</button>
+            <img src="https://i.postimg.cc/nz8pzC8r/copilot-image-1767251892832.png" alt="بولینگ" style="width: 100%; height: auto; border-radius: 10px; margin-bottom: 10px;" />
+            <span>بولینگ</span>
+        </a>
+
+        <a href="https://tetris.com/play-tetris" class="game-card" target="_blank" data-game-name="جورچین" data-game-img="https://i.postimg.cc/HsYvQddj/copilot-image-1767248548051.png">
+            <button class="favorite-btn" title="افزودن به علاقمندی‌ها">😍</button>
+            <img src="https://i.postimg.cc/HsYvQddj/copilot-image-1767248548051.png" alt="جورچین" style="width: 100%; height: auto; border-radius: 10px; margin-bottom: 10px;" />
+            <span>جورچین</span>
+        </a>
+
+        <a href="https://slowroads.io/" class="game-card" target="_blank" data-game-name="ماشین بازی" data-game-img="https://i.postimg.cc/XvCsVvc8/copilot-image-1767248299585.png">
+            <button class="favorite-btn" title="افزودن به علاقمندی‌ها">😍</button>
+            <img src="https://i.postimg.cc/XvCsVvc8/copilot-image-1767248299585.png" alt="ماشین بازی" style="width: 100%; height: auto; border-radius: 10px; margin-bottom: 10px;" />
+            <span>ماشین بازی</span>
+        </a>
+
+        <a href="https://he-is-talha.github.io/html-css-javascript-games/26-Fruit-Slicer-Game/" class="game-card" target="_blank" data-game-name="اسلایس میوه" data-game-img="https://i.postimg.cc/5NmdVsNv/IMG-20260101-095743.jpg">
+            <button class="favorite-btn" title="افزودن به علاقمندی‌ها">😍</button>
+            <img src="https://i.postimg.cc/5NmdVsNv/IMG-20260101-095743.jpg" alt="اسلایس میوه" style="width: 100%; height: auto; border-radius: 10px; margin-bottom: 10px;" />
+            <span>اسلایس میوه</span>
+        </a>
+        <a href="https://he-is-talha.github.io/html-css-javascript-games/29-Whack-A-Mole-Game/" class="game-card" target="_blank" data-game-name="موش کوچولو" data-game-img="https://i.postimg.cc/VLwQpxwF/IMG-20260101-102501.jpg">
+            <button class="favorite-btn" title="افزودن به علاقمندی‌ها">😍</button>
+            <img src="https://i.postimg.cc/VLwQpxwF/IMG-20260101-102501.jpg" alt="موش کوچولو" style="width: 100%; height: auto; border-radius: 10px; margin-bottom: 10px;" />
+            <span>موش کوچولو</span>
+        </a>
+        <a href="https://he-is-talha.github.io/html-css-javascript-games/20-Crossy-Road-Game/" class="game-card" target="_blank" data-game-name="عبور کن" data-game-img="https://i.postimg.cc/RZXBcXk9/copilot-image-1767249152523.png">
+            <button class="favorite-btn" title="افزودن به علاقمندی‌ها">😍</button>
+            <img src="https://i.postimg.cc/RZXBcXk9/copilot-image-1767249152523.png" alt="عبور کن" style="width: 100%; height: auto; border-radius: 10px; margin-bottom: 10px;" />
+            <span>عبور کن</span>
+        </a>
+        <a href="https://he-is-talha.github.io/html-css-javascript-games/05-Minesweeper-Game/" class="game-card" target="_blank" data-game-name="مین‌یاب" data-game-img="https://i.postimg.cc/2jcKSKL7/copilot-image-1767253461123.png">
+            <button class="favorite-btn" title="افزودن به علاقمندی‌ها">😍</button>
+            <img src="https://i.postimg.cc/2jcKSKL7/copilot-image-1767253461123.png" alt="مین‌یاب" style="width: 100%; height: auto; border-radius: 10px; margin-bottom: 10px;" />
+            <span>مین‌یاب</span>
+        </a>
+        <a href="https://he-is-talha.github.io/html-css-javascript-games/06-Tower-Blocks/" class="game-card" target="_blank" data-game-name="برج سازی" data-game-img="https://i.postimg.cc/rpxNBPMZ/copilot-image-1767247974914.png">
+            <button class="favorite-btn" title="افزودن به علاقمندی‌ها">😍</button>
+            <img src="https://i.postimg.cc/rpxNBPMZ/copilot-image-1767247974914.png" alt="برج سازی" style="width: 100%; height: auto; border-radius: 10px; margin-bottom: 10px;" />
+            <span>برج سازی</span>
+        </a>
+        <a href="https://he-is-talha.github.io/html-css-javascript-games/10-Memory-Card-Game/" class="game-card" target="_blank" data-game-name="حدس بزن" data-game-img="https://i.postimg.cc/RhKmK9BH/copilot-image-1767249795167.png">
+            <button class="favorite-btn" title="افزودن به علاقمندی‌ها">😍</button>
+            <img src="https://i.postimg.cc/RhKmK9BH/copilot-image-1767249795167.png" alt="حدس بزن" style="width: 100%; height: auto; border-radius: 10px; margin-bottom: 10px;" />
+            <span>حدس بزن</span>
+        </a>
+        <a href="https://play.js13kgames.com/kleptokitty/" class="game-card" target="_blank" data-game-name="فرار گربه" data-game-img="https://i.postimg.cc/XvpT93KV/copilot-image-1767248815320.png">
+            <button class="favorite-btn" title="افزودن به علاقمندی‌ها">😍</button>
+            <img src="https://i.postimg.cc/XvpT93KV/copilot-image-1767248815320.png" alt="فرار گربه" style="width: 100%; height: auto; border-radius: 10px; margin-bottom: 10px;" />
+            <span>فرار گربه</span>
+        </a>
+        <a href="https://play.js13kgames.com/cats-puzzle/" class="game-card" target="_blank" data-game-name="پازل پیشی‌ها" data-game-img="https://i.postimg.cc/Pf2QnZs3/copilot-image-1767246774021.png">
+            <button class="favorite-btn" title="افزودن به علاقمندی‌ها">😍</button>
+            <img src="https://i.postimg.cc/Pf2QnZs3/copilot-image-1767246774021.png" alt="پازل پیشی‌ها" style="width: 100%; height: auto; border-radius: 10px; margin-bottom: 10px;" />
+            <span>پازل پیشی‌ها</span>
+        </a>
+        <a href="https://playsnake.org/" class="game-card" target="_blank" data-game-name="مار پیچ" data-game-img="https://i.postimg.cc/MTYg5ZTX/copilot-image-1767253338566.png">
+            <button class="favorite-btn" title="افزودن به علاقمندی‌ها">😍</button>
+            <img src="https://i.postimg.cc/MTYg5ZTX/copilot-image-1767253338566.png" alt="مار پیچ" style="width: 100%; height: auto; border-radius: 10px; margin-bottom: 10px;" />
+            <span>مار پیچ</span>
+        </a>
+
+        <a href="پرنده خشمگین.html" class="game-card" data-game-name="پرنده خشمگین" data-game-img="https://i.postimg.cc/rs019nn4/copilot-image-1767252475550.png">
+            <button class="favorite-btn" title="افزودن به علاقمندی‌ها">😍</button>
+            <img src="https://i.postimg.cc/rs019nn4/copilot-image-1767252475550.png" alt="پرنده خشمگین" style="width: 100%; height: auto; border-radius: 10px; margin-bottom: 10px;" />
+            <span>پرنده خشمگین</span>
+        </a>
+        <a href="پیانو.html" class="game-card" data-game-name="پیانو" data-game-img="https://i.postimg.cc/N0cdjcJw/copilot-image-1767252296017.png">
+            <button class="favorite-btn" title="افزودن به علاقمندی‌ها">😍</button>
+            <img src="https://i.postimg.cc/N0cdjcJw/copilot-image-1767252296017.png" alt="پیانو" style="width: 100%; height: auto; border-radius: 10px; margin-bottom: 10px;" />
+            <span>پیانو</span>
+        </a>
+        <a href="دارت.html" class="game-card" data-game-name="دارت" data-game-img="https://i.postimg.cc/fb1T98dD/copilot-image-1767251725939.png">
+            <button class="favorite-btn" title="افزودن به علاقمندی‌ها">😍</button>
+            <img src="https://i.postimg.cc/fb1T98dD/copilot-image-1767251725939.png" alt="دارت" style="width: 100%; height: auto; border-radius: 10px; margin-bottom: 10px;" />
+            <span>دارت</span>
+        </a>
+
+        <a href="https://tetris.com/play-tetris" class="game-card" target="_blank" data-game-name="دوز" data-game-img="https://i.postimg.cc/NG1Z6dXV/IMG-20260101-102713.jpg">
+            <button class="favorite-btn" title="افزودن به علاقمندی‌ها">😍</button>
+            <img src="https://i.postimg.cc/NG1Z6dXV/IMG-20260101-102713.jpg" alt="دوز" style="width: 100%; height: auto; border-radius: 10px; margin-bottom: 10px;" />
+            <span>دوز</span>
+        </a>
+
+        <a href="دونده جنگلی.html" class="game-card" data-game-name="دونده جنگلی" data-game-img="https://i.postimg.cc/4y7bdwrf/copilot-image-1767253566904.png">
+            <button class="favorite-btn" title="افزودن به علاقمندی‌ها">😍</button>
+            <img src="https://i.postimg.cc/4y7bdwrf/copilot-image-1767253566904.png" alt="دونده جنگلی" style="width: 100%; height: auto; border-radius: 10px; margin-bottom: 10px;" />
+            <span>دونده جنگلی</span>
+        </a>
+        <a href="فوتبال.html" class="game-card" data-game-name="فوتبال" data-game-img="https://i.postimg.cc/44DFchwW/copilot-image-1767253732957.png">
+            <button class="favorite-btn" title="افزودن به علاقمندی‌ها">😍</button>
+            <img src="https://i.postimg.cc/44DFchwW/copilot-image-1767253732957.png" alt="فوتبال" style="width: 100%; height: auto; border-radius: 10px; margin-bottom: 10px;" />
+            <span>فوتبال</span>
+        </a>
+        <a href="لایی کشی توپ.html" class="game-card" data-game-name="لایی‌کشی توپ" data-game-img="https://i.postimg.cc/sxYP71D7/copilot-image-1767253906619.png">
+            <button class="favorite-btn" title="افزودن به علاقمندی‌ها">😍</button>
+            <img src="https://i.postimg.cc/sxYP71D7/copilot-image-1767253906619.png" alt="لایی‌کشی توپ" style="width: 100%; height: auto; border-radius: 10px; margin-bottom: 10px;" />
+            <span>لایی‌کشی توپ</span>
+        </a>
+        <a href="ماشین پرشی.html" class="game-card" data-game-name="ماشین پرشی" data-game-img="https://i.postimg.cc/qBs2mh48/copilot-image-1767254028271.png">
+            <button class="favorite-btn" title="افزودن به علاقمندی‌ها">😍</button>
+            <img src="https://i.postimg.cc/qBs2mh48/copilot-image-1767254028271.png" alt="ماشین پرشی" style="width: 100%; height: auto; border-radius: 10px; margin-bottom: 10px;" />
+            <span>ماشین پرشی</span>
+        </a>
+        <a href="ماشین ساحلی.html" class="game-card" data-game-name="ماشین ساحلی" data-game-img="https://i.postimg.cc/V6j0HpQC/copilot-image-1767254116190.png">
+            <button class="favorite-btn" title="افزودن به علاقمندی‌ها">😍</button>
+            <img src="https://i.postimg.cc/V6j0HpQC/copilot-image-1767254116190.png" alt="ماشین ساحلی" style="width: 100%; height: auto; border-radius: 10px; margin-bottom: 10px;" />
+            <span>ماشین ساحلی</span>
+        </a>
+        <a href="منچ.html" class="game-card" data-game-name="منچ" data-game-img="https://i.postimg.cc/3RP43K11/copilot-image-1767251549903.png">
+            <button class="favorite-btn" title="افزودن به علاقمندی‌ها">😍</button>
+            <img src="https://i.postimg.cc/3RP43K11/copilot-image-1767251549903.png" alt="منچ" style="width: 100%; height: auto; border-radius: 10px; margin-bottom: 10px;" />
+            <span>منچ</span>
+        </a>
+        <a href="توپ سرعتی.html" class="game-card" data-game-name="توپ سرعتی" data-game-img="https://i.postimg.cc/qM7g8zRz/copilot-image-1767254229671.png">
+            <button class="favorite-btn" title="افزودن به علاقمندی‌ها">😍</button>
+            <img src="https://i.postimg.cc/qM7g8zRz/copilot-image-1767254229671.png" alt="توپ سرعتی" style="width: 100%; height: auto; border-radius: 10px; margin-bottom: 10px;" />
+            <span>توپ سرعتی</span>
+        </a>
+    </div>
+</div>
+
+<script>
+const search = document.getElementById('gameSearch');
+const gamesGrid = document.getElementById('gamesGrid');
+const cards = [...document.querySelectorAll('.game-card')]; // این لیست اصلی کارت‌هاست
+
+// 1. منطق دریافت نام بازی (از data-game-name یا span)
+function getGameName(card) {
+    return card.dataset.gameName || card.querySelector('span')?.textContent.trim() || '';
+}
+
+// Map برای نگهداری اطلاعات کامل هر بازی (مهم برای ساخت کارت‌های کپی شده)
+const gameDataMap = new Map();
+cards.forEach(card => {
+    gameDataMap.set(getGameName(card), {
+        href: card.getAttribute('href'),
+        imgSrc: card.dataset.gameImg || card.querySelector('img')?.getAttribute('src'), // اطمینان از دسترسی به تصویر
+        target: card.getAttribute('target')
+    });
+});
+
+/**
+ * تابعی کمکی برای ساخت کارت بازی جدید (برای استفاده در بخش‌های منتخب، پرطرفدار و علاقمندی)
+ * @param {string} name - نام بازی
+ * @param {boolean} isFavoriteSection - آیا این کارت برای بخش علاقمندی‌ها است؟
+ * @returns {HTMLElement|null} کارت بازی جدید یا null
+ */
+function createGameCardElement(name, isFavoriteSection = false) {
+    const gameInfo = gameDataMap.get(name);
+    if (!gameInfo) return null;
+
+    const newCard = document.createElement('a');
+    newCard.href = gameInfo.href;
+    newCard.className = 'game-card';
+    newCard.dataset.gameName = name;
+    if (gameInfo.target) newCard.target = gameInfo.target;
+
+    // افزودن کلاس top-game برای بخش‌های منتخب و پرطرفدار (که آیکون قلب ندارند)
+    if (!isFavoriteSection) {
+        newCard.classList.add('top-game'); 
+    }
+
+    // آیکون قلب فقط در بخش علاقمندی‌ها نمایش داده می‌شود
+    if (isFavoriteSection) {
+        const favBtn = document.createElement('button');
+        favBtn.className = 'favorite-btn is-favorite';
+        favBtn.title = 'حذف از علاقمندی‌ها';
+        favBtn.innerHTML = '😍'; // استفاده از ایموجی
+        
+        // Listener جدید برای دکمه قلب
+        favBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            toggleFavorite(name);
+        });
+        newCard.appendChild(favBtn);
+    }
+    
+    // محتوای تصویر و نام
+    const img = document.createElement('img');
+    img.src = gameInfo.imgSrc;
+    img.alt = name;
+    img.style = "width: 100%; height: auto; border-radius: 10px; margin-bottom: 10px;";
+    
+    const span = document.createElement('span');
+    span.textContent = name;
+
+    newCard.appendChild(img);
+    newCard.appendChild(span);
+    
+    return newCard;
+}
+
+
+// 2. منطق ردیابی تعداد بازی‌ها (برای بخش پرطرفدارترین)
+function addPlay(name) {
+    const data = JSON.parse(localStorage.getItem('plays') || '{}');
+    data[name] = (data[name] || 0) + 1;
+    localStorage.setItem('plays', JSON.stringify(data));
+    renderTopGames(); // بلافاصله پس از هر کلیک، بخش پرطرفدارترین را به‌روز کن
+}
+
+cards.forEach(c => {
+    // ردیابی کلیک روی لینک اصلی کارت
+    c.addEventListener('click', (e) => {
+        // مطمئن می‌شویم که اگر روی دکمه قلب کلیک شده، عملگر اصلی لینک انجام نشود
+        if (!e.target.closest('.favorite-btn')) {
+            addPlay(getGameName(c));
+        }
+    });
+});
+
+// 3. منطق علاقمندی‌ها (Favorites)
+function getFavorites() {
+    return JSON.parse(localStorage.getItem('favorites') || '[]');
+}
+
+function saveFavorites(favorites) {
+    localStorage.setItem('favorites', JSON.stringify(favorites));
+}
+
+function toggleFavorite(gameName) {
+    const favorites = getFavorites();
+    const index = favorites.indexOf(gameName);
+    
+    if (index > -1) {
+        favorites.splice(index, 1); // حذف از علاقمندی‌ها
+    } else {
+        favorites.push(gameName); // اضافه کردن به علاقمندی‌ها
+    }
+    
+    saveFavorites(favorites);
+    renderAllCardsState();
+    renderFavoriteGames();
+}
+
+function renderAllCardsState() {
+    const favorites = getFavorites();
+    cards.forEach(card => {
+        const name = getGameName(card);
+        const favBtn = card.querySelector('.favorite-btn');
+        if (favBtn) {
+            if (favorites.includes(name)) {
+                favBtn.classList.add('is-favorite');
+                favBtn.title = 'حذف از علاقمندی‌ها';
+            } else {
+                favBtn.classList.remove('is-favorite');
+                favBtn.title = 'افزودن به علاقمندی‌ها';
+            }
+        }
+    });
+}
+
+// 4. رندر بخش منتخب (Curated Best Games)
+function renderBestGames() {
+    // لیست بازی‌های منتخب که شما از من خواستید
+    const bestGamesList = ["بطری برگردون", "بولینگ", "دونده جنگلی", "فوتبال", "توپ سرعتی"]; 
+    const box = document.getElementById('bestGames');
+    box.innerHTML = '';
+    
+    // بخش منتخب همیشه نمایش داده می‌شود
+    document.getElementById('bestGamesSection').style.display='block'; 
+
+    bestGamesList.forEach(name => {
+        const card = createGameCardElement(name, false); // false = بدون آیکون قلب
+        if (card) {
+            box.appendChild(card);
+        }
+    });
+}
+
+
+// 5. رندر بخش پرطرفدارترین بازی‌ها
+function renderTopGames() {
+    const data = JSON.parse(localStorage.getItem('plays') || '{}');
+    // مرتب‌سازی بر اساس کلیک و گرفتن حداکثر 4 بازی
+    const sorted = Object.entries(data).sort((a,b) => b[1] - a[1]).slice(0, 4);
+
+    const box = document.getElementById('topGames');
+    box.innerHTML = '';
+    
+    if(!sorted.length){
+        document.getElementById('topGamesSection').style.display='none';
+        return;
+    }
+    
+    document.getElementById('topGamesSection').style.display='block';
+
+    sorted.forEach(([name]) => {
+        const card = createGameCardElement(name, false); // false = بدون آیکون قلب
+        if (card) {
+            box.appendChild(card);
+        }
+    });
+}
+
+// 6. رندر بخش علاقمندی‌های من
+function renderFavoriteGames() {
+    const favorites = getFavorites();
+    const box = document.getElementById('favoriteGames');
+    box.innerHTML = '';
+
+    if(!favorites.length){
+        document.getElementById('favoriteGamesSection').style.display='none';
+        return;
+    }
+    
+    document.getElementById('favoriteGamesSection').style.display='block';
+
+    favorites.forEach(name => {
+        const card = createGameCardElement(name, true); // true = با آیکون قلب (فعال)
+        if (card) {
+            box.appendChild(card);
+        }
+    });
+}
+
+
+// 7. انتساب Listener به دکمه‌های قلب در لیست اصلی
+cards.forEach(card => {
+    const favBtn = card.querySelector('.favorite-btn');
+    if (favBtn) {
+        favBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation(); // جلوگیری از فعال شدن لینک اصلی کارت
+            toggleFavorite(getGameName(card));
+        });
+    }
+});
+
+// 8. منطق جستجو
+search.addEventListener('input', e => {
+    const val = e.target.value.trim().toLowerCase();
+    cards.forEach(card => {
+        const name = getGameName(card);
+        const spanElement = card.querySelector('span');
+        
+        if (name.toLowerCase().includes(val) || !val) {
+            card.style.display = 'flex';
+            // بازگرداندن نام بازی اصلی برای مارک کردن
+            if (spanElement) {
+                const originalName = card.dataset.gameName;
+                spanElement.innerHTML = originalName.replace(new RegExp(val, 'gi'), match => `<mark>${match}</mark>`);
+            }
+        } else {
+            card.style.display = 'none';
+        }
+    });
+});
+
+// 9. اجرای اولیه برای نمایش حالت قلب‌ها و بخش‌های ویژه
+renderAllCardsState();
+renderBestGames(); 
+renderTopGames();
+renderFavoriteGames();
+</script>
+
+</body>
+              </html>
