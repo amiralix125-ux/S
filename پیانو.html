@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>بازی پیانو نواز - نسخه آزمایشی</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;700&display=swap');
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #1a1a2e; /* رنگ پس‌زمینه تیره مشابه تصویر */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: 'Vazirmatn', sans-serif;
+            overflow: hidden;
+        }
+
+        #game-container {
+            position: relative;
+            width: 360px;
+            height: 640px;
+            background-color: #16213e;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            border: 2px solid #4a4e69;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* رابط کاربری روی بازی */
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            z-index: 10;
+        }
+
+        h1 {
+            font-size: 40px;
+            margin-bottom: 10px;
+            color: #fff;
+            text-shadow: 0 0 10px #ff00de;
+        }
+
+        .btn {
+            background: linear-gradient(45deg, #ff9f43, #ff6b6b); /* دکمه نارنجی مشابه تصویر */
+            border: none;
+            padding: 15px 40px;
+            font-size: 20px;
+            color: white;
+            border-radius: 50px;
+            cursor: pointer;
+            font-family: inherit;
+            box-shadow: 0 5px 15px rgba(255, 107, 107, 0.4);
+            transition: transform 0.2s;
+        }
+
+        .btn:hover {
+            transform: scale(1.05);
+        }
+
+        #score-board {
+            position: absolute;
+            top: 20px;
+            left: 0;
+            width: 100%;
+            text-align: center;
+            font-size: 30px;
+            color: white;
+            font-weight: bold;
+            pointer-events: none;
+            z-index: 5;
+            display: none;
+            text-shadow: 2px 2px 4px #000;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <div id="score-board">امتیاز: <span id="score">0</span></div>
+        <canvas id="gameCanvas"></canvas>
+        
+        <!-- صفحه شروع / باخت -->
+        <div id="ui-layer">
+            <h1 id="game-title">پیانو نواز</h1>
+            <p id="final-score" style="display:none; margin-bottom: 20px;">امتیاز نهایی: 0</p>
+            <button class="btn" onclick="startGame()">بازی کن</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const uiLayer = document.getElementById('ui-layer');
+        const scoreBoard = document.getElementById('score-board');
+        const scoreEl = document.getElementById('score');
+        const finalScoreEl = document.getElementById('final-score');
+        const gameTitle = document.getElementById('game-title');
+
+        // تنظیمات بازی
+        let gameWidth = 360;
+        let gameHeight = 640;
+        canvas.width = gameWidth;
+        canvas.height = gameHeight;
+
+        const LANES = 4;
+        const LANE_WIDTH = gameWidth / LANES;
+        let tiles = [];
+        let score = 0;
+        let speed = 3;
+        let isGameOver = false;
+        let animationId;
+        
+        // سیستم صوتی ساده
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playSound(freq = 440) {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.frequency.value = freq;
+            osc.type = 'sine';
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            gain.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + 0.5);
+            osc.stop(audioCtx.currentTime + 0.5);
+        }
+
+        class Tile {
+            constructor(lane, y) {
+                this.lane = lane;
+                this.x = lane * LANE_WIDTH;
+                this.y = y;
+                this.width = LANE_WIDTH;
+                this.height = 150; // ارتفاع هر کاشی
+                this.color = '#111'; // سیاه برای نت‌ها
+                this.clicked = false;
+            }
+
+            draw() {
+                // بدنه اصلی کاشی
+                ctx.fillStyle = this.clicked ? '#55efc4' : '#000000'; // اگر کلیک شد سبز، وگرنه سیاه
+                ctx.fillRect(this.x + 1, this.y, this.width - 2, this.height);
+                
+                // افکت براق بودن (مانند کلید پیانو)
+                if (!this.clicked) {
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+                    ctx.fillRect(this.x + 1, this.y, this.width - 2, this.height * 0.8);
+                }
+            }
+
+            update() {
+                this.y += speed;
+            }
+        }
+
+        function startGame() {
+            // ریست کردن وضعیت
+            tiles = [];
+            score = 0;
+            speed = 4;
+            isGameOver = false;
+            scoreEl.innerText = '0';
+            
+            // مخفی کردن UI و نمایش امتیاز
+            uiLayer.classList.add('hidden');
+            scoreBoard.style.display = 'block';
+            finalScoreEl.style.display = 'none';
+
+            // ایجاد کاشی‌های اولیه
+            addTile(-150);
+            addTile(-300);
+            addTile(-450);
+
+            animate();
+        }
+
+        function addTile(yOffset) {
+            const lane = Math.floor(Math.random() * LANES);
+            tiles.push(new Tile(lane, yOffset));
+        }
+
+        function gameOver() {
+            isGameOver = true;
+            cancelAnimationFrame(animationId);
+            uiLayer.classList.remove('hidden');
+            scoreBoard.style.display = 'none';
+            gameTitle.innerText = "باختی!";
+            finalScoreEl.style.display = 'block';
+            finalScoreEl.innerText = "امتیاز نهایی: " + score;
+            
+            // صدای باخت
+            playSound(150);
+        }
+
+        function animate() {
+            if (isGameOver) return;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // رسم خطوط جداکننده
+            ctx.strokeStyle = '#rgba(255,255,255,0.2)';
+            ctx.lineWidth = 1;
+            for (let i = 1; i < LANES; i++) {
+                ctx.beginPath();
+                ctx.moveTo(i * LANE_WIDTH, 0);
+                ctx.lineTo(i * LANE_WIDTH, canvas.height);
+                ctx.stroke();
+            }
+
+            // رسم خط پایان (پایین صفحه)
+            ctx.fillStyle = 'rgba(255, 0, 0, 0.2)';
+            ctx.fillRect(0, gameHeight - 20, gameWidth, 20);
+
+            // مدیریت کاشی‌ها
+            if (tiles.length > 0 && tiles[tiles.length - 1].y > -10) {
+                 addTile(tiles[tiles.length - 1].y - 150);
+            }
+
+            for (let i = 0; i < tiles.length; i++) {
+                tiles[i].update();
+                tiles[i].draw();
+
+                // شرط باخت: اگر کاشی به پایین صفحه رسید و کلیک نشده بود
+                if (tiles[i].y > canvas.height) {
+                    if (!tiles[i].clicked) {
+                        gameOver();
+                    } else {
+                        // حذف کاشی‌هایی که از صفحه خارج شده‌اند و کلیک شده‌اند
+                        tiles.splice(i, 1);
+                        i--;
+                    }
+                }
+            }
+
+            animationId = requestAnimationFrame(animate);
+        }
+
+        // کنترل ورودی (موس و تاچ)
+        canvas.addEventListener('mousedown', handleInput);
+        
+        function handleInput(e) {
+            if (isGameOver) return;
+
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            const clickedLane = Math.floor(x / LANE_WIDTH);
+            
+            // پیدا کردن پایین‌ترین کاشی که کلیک نشده
+            // ما فقط باید کاشی‌ای را بررسی کنیم که به منطقه حساس رسیده است
+            let hit = false;
+            
+            for (let tile of tiles) {
+                // اگر روی کاشی کلیک شد
+                if (!tile.clicked && 
+                    clickedLane === tile.lane && 
+                    y >= tile.y && y <= tile.y + tile.height) {
+                    
+                    tile.clicked = true;
+                    score++;
+                    scoreEl.innerText = score;
+                    
+                    // افزایش سرعت بازی به مرور زمان
+                    if (score % 10 === 0) speed += 0.5;
+
+                    // پخش صدای رندوم نت موسیقی
+                    const notes = [261.63, 293.66, 329.63, 349.23, 392.00, 440.00, 493.88];
+                    playSound(notes[Math.floor(Math.random() * notes.length)]);
+                    
+                    hit = true;
+                    break;
+                }
+            }
+
+            // اگر کلیک در ستونی انجام شد که کاشی‌ای در آن نبود (یا کاشی خیلی دور بود) = باخت
+            if (!hit) {
+                // منطق سخت‌گیرانه: اگر جایی کلیک کنید که کاشی نیست، می‌بازید (مشابه بازی اصلی)
+                // برای نسخه ساده فعلاً این را غیرفعال می‌کنیم تا بازی راحت‌تر تست شود.
+                // اگر خواستید فعال کنید، خط زیر را از کامنت خارج کنید:
+                // gameOver();
+            }
+        }
+
+    </script>
+</body>
+</html>

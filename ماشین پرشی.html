@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
+<title>Motor Challenge V2 (Jumping)</title>
+
+<style>
+body{margin:0;overflow:hidden;background:#0f1220;font-family:tahoma;touch-action:none;user-select:none;}
+canvas{display:block;}
+
+/* HUD */
+#hud{position:fixed;top:10px;right:10px;color:#fff;background:rgba(0,0,0,.6);padding:12px 18px;border-radius:12px;font-size:14px;pointer-events:none;}
+#shopBtn{pointer-events:auto;background:#ff9800;border:none;border-radius:5px;padding:5px 10px;cursor:pointer;}
+
+/* Controls */
+.ctrl{position:fixed;width:65px;height:65px;border-radius:50%;background:rgba(255,255,255,.15);color:#fff;display:flex;align-items:center;justify-content:center;font-size:24px;cursor:pointer;border:2px solid rgba(255,255,255,0.3);}
+.ctrl:active{background:rgba(255,152,0,0.6);}
+
+/* Layout Controls */
+#gas{bottom:30px;right:20px;}
+#brake{bottom:30px;right:100px;}
+#jump{bottom:110px;right:20px;background:rgba(0,150,255,0.3);} /* دکمه پرش */
+#left{bottom:30px;left:20px;}
+#right{bottom:30px;left:100px;}
+
+/* Shop */
+#shop{position:fixed;inset:0;background:rgba(15,18,32,0.95);color:white;display:none;padding:20px;z-index:100;overflow-y:auto;}
+.bike{border:1px solid #444;padding:15px;margin-bottom:10px;border-radius:10px;background:#1e2040;display:flex;justify-content:space-between;align-items:center;}
+button.buy{padding:8px 16px;border:none;border-radius:6px;background:#ff9800;color:#000;font-weight:bold;cursor:pointer;}
+button.close{margin-top:20px;padding:10px 20px;background:#f44336;color:white;border:none;border-radius:5px;cursor:pointer;}
+</style>
+</head>
+
+<body>
+
+<canvas id="c"></canvas>
+
+<div id="hud">
+  مرحله: <span id="lvl">1</span> | سکه: <span id="coin">0</span>
+  <br><br>
+  <button id="shopBtn" onclick="openShop()">🛒 فروشگاه</button>
+</div>
+
+<!-- Mobile Controls -->
+<div class="ctrl" id="gas">⚡</div>
+<div class="ctrl" id="brake">🛑</div>
+<div class="ctrl" id="jump">🚀</div> <!-- دکمه جدید -->
+<div class="ctrl" id="left">◀</div>
+<div class="ctrl" id="right">▶</div>
+
+<!-- Shop -->
+<div id="shop">
+  <h2>🏍️ گاراژ موتورها</h2>
+  <div id="shopList"></div>
+  <button class="close" onclick="closeShop()">بستن فروشگاه</button>
+</div>
+
+<script>
+/* ===== Canvas ===== */
+const c=document.getElementById("c");
+const ctx=c.getContext("2d");
+function resize(){ c.width=innerWidth; c.height=innerHeight; }
+resize(); window.onresize=resize;
+
+/* ===== Game State ===== */
+let coins=parseInt(localStorage.coins||0);
+let level=parseInt(localStorage.level||1);
+let gameState="playing"; // playing, crashed
+
+/* ===== Bikes Config ===== */
+const bikes=[
+ {id:0,name:"Street Bike",price:0,speed:7,jumpForce:12,color:"#ff9800"},
+ {id:1,name:"Dirt Pro",price:250,speed:9,jumpForce:14,color:"#00e676"},
+ {id:2,name:"Monster",price:600,speed:11,jumpForce:16,color:"#f50057"}
+];
+let owned=JSON.parse(localStorage.owned||"[0]");
+let currentBikeId=parseInt(localStorage.bike||0);
+
+/* ===== Player Physics ===== */
+let player={
+ x:100, y:0,
+ vx:0, vy:0,
+ angle:0,
+ onGround:false
+};
+
+/* ===== Levels ===== */
+// تولید تصادفی سطح زمین برای هر مرحله
+function getGroundHeight(x){
+ // ترکیب چند موج سینوسی برای ساخت تپه
+ return c.height - 150 - (Math.sin(x/150)*40 + Math.sin(x/400)*80);
+}
+
+const levels={
+ 1: {len:3000, coins:[{x:500},{x:1200},{x:2000}], obs:[{x:800},{x:1600}]},
+ 2: {len:4000, coins:[{x:600},{x:1500},{x:2500}], obs:[{x:1000},{x:2200},{x:3200}]},
+ 3: {len:5000, coins:[{x:800},{x:1800},{x:3500}], obs:[{x:1300},{x:2400},{x:4000}]}
+};
+
+/* ===== Controls ===== */
+let keys={};
+window.onkeydown=e=>{ keys[e.key]=true; if(e.code==="Space") doJump(); };
+window.onkeyup=e=>keys[e.key]=false;
+
+// Touch Controls
+function bindTouch(id, key){
+ let el=document.getElementById(id);
+ el.ontouchstart=(e)=>{ e.preventDefault(); keys[key]=true; if(key==="jump") doJump(); };
+ el.ontouchend=(e)=>{ e.preventDefault(); keys[key]=false; };
+}
+bindTouch("gas","ArrowUp");
+bindTouch("brake","ArrowDown");
+bindTouch("left","ArrowLeft");
+bindTouch("right","ArrowRight");
+bindTouch("jump","jump");
+
+/* ===== Logic ===== */
+function doJump(){
+ const bike = bikes[currentBikeId];
+ // فقط وقتی روی زمین هستیم بپریم
+ if(player.onGround){
+  player.vy = -bike.jumpForce; // قدرت پرش
+  player.onGround = false;
+ }
+}
+
+function update(){
+ if(gameState!=="playing") return;
+
+ const bike=bikes[currentBikeId];
+ 
+ // حرکت
+ if(keys.ArrowUp) player.vx += 0.3;
+ if(keys.ArrowDown) player.vx -= 0.2;
+ if(keys.ArrowLeft) player.angle -= 0.05; // تک چرخ
+ if(keys.ArrowRight) player.angle += 0.05;
+
+ // اصطکاک و جاذبه
+ player.vx *= 0.96;
+ player.vy += 0.6; // جاذبه
+
+ player.x += player.vx;
+ player.y += player.vy;
+
+ // برخورد با زمین
+ let gH = getGroundHeight(player.x);
+ if(player.y > gH){
+  player.y = gH;
+  player.vy = 0;
+  player.onGround = true;
+  // زاویه موتور با شیب زمین هماهنگ میشه (کمی نرم تر)
+  let nextH = getGroundHeight(player.x+10);
+  let slope = Math.atan2(nextH-gH, 10);
+  // player.angle = slope; // اگر بخوایم کامل بچسبه
+ } else {
+  player.onGround = false;
+ }
+
+ // برخورد با سکه
+ let lvlData = levels[level] || levels[1];
+ if(lvlData.coins){
+  lvlData.coins.forEach(c=>{
+   if(!c.taken && Math.hypot(player.x - c.x, player.y - getGroundHeight(c.x)) < 40){
+    c.taken = true;
+    coins += 10;
+    localStorage.coins=coins;
+    updateHUD();
+   }
+  });
+ }
+
+ // برخورد با مانع (Spike)
+ if(lvlData.obs){
+  lvlData.obs.forEach(o=>{
+   let ox = o.x;
+   let oy = getGroundHeight(ox);
+   if(Math.abs(player.x - ox) < 25 && Math.abs(player.y - oy) < 25){
+    crash();
+   }
+  });
+ }
+
+ // پایان مرحله
+ if(player.x > lvlData.len){
+  level++;
+  localStorage.level=level;
+  resetGame();
+ }
+}
+
+function crash(){
+ gameState="crashed";
+ setTimeout(()=>{
+  resetGame();
+  gameState="playing";
+ }, 1000);
+}
+
+function resetGame(){
+ player.x=100; 
+ player.y=0; 
+ player.vx=0; 
+ player.vy=0;
+ player.angle=0;
+ // ریست کردن سکه های مرحله (اختیاری)
+ updateHUD();
+}
+
+function updateHUD(){
+ document.getElementById("coin").innerText=coins;
+ document.getElementById("lvl").innerText=level;
+}
+
+/* ===== Render ===== */
+function draw(){
+ ctx.fillStyle="#0f1220";
+ ctx.fillRect(0,0,c.width,c.height);
+
+ ctx.save();
+ // دوربین دنبال موتور میاد
+ ctx.translate(-player.x + 150, 0);
+
+ // رسم زمین
+ ctx.beginPath();
+ ctx.moveTo(player.x-200, c.height);
+ for(let x=player.x-200; x<player.x+800; x+=20){
+  ctx.lineTo(x, getGroundHeight(x));
+ }
+ ctx.lineTo(player.x+800, c.height);
+ ctx.fillStyle="#263238";
+ ctx.fill();
+ ctx.strokeStyle="#4caf50";
+ ctx.lineWidth=5;
+ ctx.stroke();
+
+ // رسم سکه ها
+ let lvlData = levels[level] || levels[1];
+ if(lvlData.coins){
+  lvlData.coins.forEach(c=>{
+   if(!c.taken){
+    ctx.fillStyle="gold";
+    ctx.beginPath();
+    ctx.arc(c.x, getGroundHeight(c.x)-30, 10, 0, Math.PI*2);
+    ctx.fill();
+   }
+  });
+ }
+
+ // رسم موانع
+ if(lvlData.obs){
+  lvlData.obs.forEach(o=>{
+   ctx.fillStyle="red";
+   let oy = getGroundHeight(o.x);
+   ctx.beginPath();
+   ctx.moveTo(o.x-15, oy);
+   ctx.lineTo(o.x, oy-30);
+   ctx.lineTo(o.x+15, oy);
+   ctx.fill();
+  });
+ }
+
+ // رسم موتور
+ ctx.save();
+ ctx.translate(player.x, player.y-20); // کمی بالاتر از زمین
+ ctx.rotate(player.angle);
+ 
+ const bike = bikes[currentBikeId];
+ ctx.fillStyle = bike.color;
+ ctx.fillRect(-25, -10, 50, 20); // بدنه
+ ctx.fillStyle = "white"; 
+ ctx.beginPath(); ctx.arc(-20, 10, 12, 0, 7); ctx.fill(); // چرخ عقب
+ ctx.beginPath(); ctx.arc(20, 10, 12, 0, 7); ctx.fill(); // چرخ جلو
+ ctx.restore();
+
+ // خط پایان
+ ctx.fillStyle="white";
+ ctx.fillRect(lvlData.len, getGroundHeight(lvlData.len)-100, 10, 100);
+ ctx.fillText("FINISH", lvlData.len, getGroundHeight(lvlData.len)-110);
+
+ ctx.restore();
+
+ if(gameState==="crashed"){
+  ctx.fillStyle="rgba(255,0,0,0.5)";
+  ctx.fillRect(0,0,c.width,c.height);
+  ctx.fillStyle="white";
+  ctx.font="30px Tahoma";
+  ctx.fillText("تـصـادف!", c.width/2-60, c.height/2);
+ }
+
+ requestAnimationFrame(draw);
+}
+
+/* ===== Shop System ===== */
+function openShop(){
+ document.getElementById("shop").style.display="block";
+ const list=document.getElementById("shopList");
+ list.innerHTML="";
+ bikes.forEach(b=>{
+  const isOwned = owned.includes(b.id);
+  const isSelected = currentBikeId === b.id;
+  list.innerHTML += `
+   <div class="bike" style="border-left:5px solid ${b.color}">
+    <div>
+     <h3 style="margin:0">${b.name}</h3>
+     <small>سرعت: ${b.speed} | پرش: ${b.jumpForce}</small>
+    </div>
+    <div>
+     ${isSelected ? 
+       `<button disabled style="background:#4caf50;color:#fff">انتخاب شده</button>` :
+       (isOwned ? 
+         `<button class="buy" onclick="selectBike(${b.id})">انتخاب</button>` :
+         `<button class="buy" onclick="buyBike(${b.id})">خرید (${b.price} سکه)</button>`
+       )
+     }
+    </div>
+   </div>
+  `;
+ });
+}
+function closeShop(){ document.getElementById("shop").style.display="none"; }
+
+function buyBike(id){
+ const b=bikes.find(x=>x.id==id);
+ if(coins >= b.price){
+  coins -= b.price;
+  owned.push(id);
+  localStorage.coins=coins;
+  localStorage.owned=JSON.stringify(owned);
+  openShop(); // رفرش
+  updateHUD();
+ } else {
+  alert("سکه کافی نیست!");
+ }
+}
+
+function selectBike(id){
+ currentBikeId=id;
+ localStorage.bike=id;
+ openShop();
+}
+
+setInterval(update, 1000/60);
+draw();
+</script>
+</body>
+</html>

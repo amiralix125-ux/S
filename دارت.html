@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>دارت وینو | نسخه نهایی+</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: radial-gradient(circle at center, #1a2a3a, #000);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: white;
+            touch-action: none;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+        }
+
+        /* لایه‌های UI */
+        #game-container, #start-screen, #game-over-screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+        }
+
+        #game-container { visibility: hidden; }
+        .hidden { display: none !important; }
+
+        .overlay {
+            display: flex; flex-direction: column; justify-content: center;
+            align-items: center; background: rgba(0,0,0,0.8);
+            text-align: center;
+        }
+        .overlay h1 { font-size: 48px; color: #ffaa00; text-shadow: 0 0 15px #ffaa00; }
+        .overlay button {
+            pointer-events: auto; background: #ff0055; color: white;
+            border: none; padding: 15px 40px; border-radius: 50px;
+            font-size: 22px; margin-top: 20px; cursor: pointer;
+        }
+
+        /* هدر بازی */
+        .header {
+            position: absolute; top: 0; width: 100%; z-index: 10;
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 15px 20px;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent);
+            box-sizing: border-box;
+        }
+        .avatar { width: 50px; height: 50px; border-radius: 50%; border: 2px solid #ffaa00; background: url('https://i.imgur.com/k2yVga0.jpeg') center/cover; }
+        .score-val { font-size: 28px; font-weight: bold; color: #ffaa00; text-shadow: 0 0 10px #ffaa00; }
+
+        /* تاریخچه امتیازات */
+        #score-history {
+            position: absolute;
+            left: 20px; top: 100px;
+            background: rgba(0,0,0,0.4);
+            padding: 10px;
+            border-radius: 10px;
+            width: 150px;
+            max-height: 200px;
+            overflow-y: auto;
+            font-size: 14px;
+        }
+        #score-history h3 { margin-top: 0; font-size: 16px; color: #ffaa00; }
+        #score-history p { margin: 4px 0; }
+
+        /* پیام‌های وسط صفحه */
+        #message {
+            position: absolute; top: 40%; left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 40px; font-weight: bold; color: #fff;
+            text-shadow: 0 5px 15px black;
+            opacity: 0; transition: opacity 0.3s, transform 0.3s;
+            pointer-events: none; z-index: 100;
+        }
+        
+        canvas { display: block; }
+
+    </style>
+</head>
+<body>
+
+    <!-- موسیقی پس‌زمینه -->
+    <audio id="bg-music" src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" loop></audio>
+
+    <!-- صفحه شروع -->
+    <div id="start-screen" class="overlay">
+        <h1>دارت وینو</h1>
+        <p>برای پرتاب، دارت را به عقب بکشید و رها کنید.</p>
+        <button onclick="startGame()">شروع بازی</button>
+    </div>
+
+    <!-- صفحه پایان بازی -->
+    <div id="game-over-screen" class="overlay hidden">
+        <h1>بازی تمام!</h1>
+        <h2 id="final-score">امتیاز نهایی: 0</h2>
+        <button onclick="startGame()">بازی مجدد</button>
+    </div>
+
+    <!-- کانتینر اصلی بازی -->
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+        <div class="header">
+            <div style="display:flex; align-items:center; gap:10px;">
+                <div class="avatar"></div>
+                <span>وینو</span>
+            </div>
+            <div>
+                <div style="font-size: 12px; color: #aaa;">مجموع</div>
+                <div class="score-val" id="totalScore">0</div>
+            </div>
+        </div>
+        <div id="score-history">
+            <h3>امتیازات</h3>
+            <div id="history-list"></div>
+        </div>
+        <div id="message"></div>
+    </div>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    let W, H;
+    function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
+    window.addEventListener('resize', resize);
+    resize();
+    
+    const boardRadius = Math.min(W, H) * 0.25;
+    const boardY = H * 0.35;
+    const throwY = H * 0.85;
+    
+    let totalScore = 0;
+    let throwCount = 1;
+    let isDragging = false;
+    let dragStart = {x:0, y:0};
+    let dragCurrent = {x:0, y:0};
+    
+    let dart = { x: W/2, y: throwY, vx: 0, vy: 0, vz: 0, z: 0, state: 'ready' };
+    const sectors = [20, 1, 18, 4, 13, 6, 10, 15, 2, 17, 3, 19, 7, 16, 8, 11, 14, 9, 12, 5];
+    let isGameLoopRunning = false;
+
+    // Load Vinole image (replace with your actual URL or keep the placeholder)
+    const vinoleImg = new Image();
+    vinoleImg.src = 'https://i.imgur.com/k2yVga0.jpeg'; // Using an imgur link for Vinole
+    vinoleImg.onload = () => {
+        const avatarDiv = document.querySelector('.avatar');
+        avatarDiv.style.backgroundImage = `url(${vinoleImg.src})`;
+    };
+
+
+    function startGame() {
+        totalScore = 0;
+        throwCount = 1;
+        document.getElementById('totalScore').innerText = '0';
+        document.getElementById('history-list').innerHTML = '';
+
+        document.getElementById('start-screen').classList.add('hidden');
+        document.getElementById('game-over-screen').classList.add('hidden');
+        document.getElementById('game-container').style.visibility = 'visible';
+
+        const bgMusic = document.getElementById('bg-music');
+        bgMusic.play().catch(e => console.log("Autoplay was prevented by the browser."));
+
+        resetDartPos();
+        if(!isGameLoopRunning) {
+            isGameLoopRunning = true;
+            loop();
+        }
+    }
+    
+    function loop() {
+        ctx.clearRect(0, 0, W, H);
+        
+        drawBoard(W/2, boardY, boardRadius);
+        updateDart();
+        drawDart();
+        
+        if(isDragging) drawAimLine();
+
+        requestAnimationFrame(loop);
+    }
+
+    function drawBoard(cx, cy, r) {
+        ctx.save();
+        ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 20;
+        ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(cx, cy, r + 15, 0, Math.PI*2); ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.fill();
+        const sectorRad = (Math.PI * 2) / 20;
+        for (let i = 0; i < 20; i++) {
+            const angle = (i * sectorRad) - (Math.PI / 2) - (sectorRad/2);
+            let color1 = (i % 2 === 0) ? '#000' : '#f5deb3';
+            let color2 = (i % 2 === 0) ? '#ff0000' : '#008000';
+            ctx.fillStyle = color1; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.arc(cx, cy, r, angle, angle + sectorRad); ctx.fill();
+            ctx.fillStyle = color2; ctx.beginPath(); ctx.arc(cx, cy, r, angle, angle + sectorRad); ctx.arc(cx, cy, r * 0.92, angle + sectorRad, angle, true); ctx.fill();
+            ctx.fillStyle = color2; ctx.beginPath(); ctx.arc(cx, cy, r * 0.6, angle, angle + sectorRad); ctx.arc(cx, cy, r * 0.52, angle + sectorRad, angle, true); ctx.fill();
+        }
+        ctx.beginPath(); ctx.arc(cx, cy, r * 0.12, 0, Math.PI*2); ctx.fillStyle = '#008000'; ctx.fill();
+        ctx.beginPath(); ctx.arc(cx, cy, r * 0.06, 0, Math.PI*2); ctx.fillStyle = '#ff0000'; ctx.fill();
+        ctx.strokeStyle = '#aaa'; ctx.lineWidth = 1;
+        for (let i = 0; i < 20; i++) {
+            const angle = (i * sectorRad) - (Math.PI/2);
+            ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(cx + r*Math.cos(angle), cy + r*Math.sin(angle)); ctx.stroke();
+        }
+        ctx.restore();
+    }
+
+    function updateDart() {
+        if(dart.state === 'flying') {
+            dart.x += dart.vx;
+            dart.y += dart.vy;
+            dart.z += dart.vz;
+            dart.vy += 0.25; // جاذبه
+            if (dart.z >= 100) landDart();
+        }
+    }
+
+    function drawDart() {
+        let scale = 1 - (dart.z / 150);
+        if (scale < 0.1) scale = 0.1;
+        ctx.save();
+        ctx.translate(dart.x, dart.y);
+        ctx.scale(scale, scale);
+        if(dart.state === 'flying') {
+             let angle = Math.atan2(dart.vy, dart.vx);
+             ctx.rotate(angle * 0.5 + Math.PI/2);
+        } else if (dart.state === 'stuck') {
+            ctx.rotate(Math.PI/2 + 0.2); 
+        }
+        ctx.fillStyle = '#ccc'; ctx.fillRect(-2, -20, 4, 40);
+        ctx.fillStyle = '#333'; ctx.beginPath(); ctx.moveTo(-2, -20); ctx.lineTo(2, -20); ctx.lineTo(0, -35); ctx.fill();
+        ctx.fillStyle = '#ff0055'; ctx.beginPath(); ctx.moveTo(0, 20); ctx.lineTo(-10, 50); ctx.lineTo(10, 50); ctx.fill();
+        ctx.restore();
+    }
+
+    function drawAimLine() {
+        const dx = dart.x - dragCurrent.x;
+        const dy = dart.y - dragCurrent.y;
+        ctx.beginPath(); ctx.moveTo(dart.x, dart.y);
+        ctx.lineTo(dart.x + dx, dart.y + dy); 
+        ctx.strokeStyle = 'rgba(0, 255, 0, 0.4)';
+        ctx.lineWidth = 3; ctx.stroke();
+    }
+
+    function landDart() {
+        dart.state = 'stuck';
+        const dx = dart.x - (W/2); const dy = dart.y - boardY;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        let angle = Math.atan2(dy, dx) + (Math.PI/2); 
+        if(angle < 0) angle += Math.PI*2;
+        const sliceAngle = (Math.PI*2) / 20;
+        let index = Math.floor((angle + sliceAngle/2) % (Math.PI*2) / sliceAngle);
+        if(index < 0 || index > 19) index = 0;
+        
+        const baseScore = sectors[index];
+        let multiplier = 1, text = "";
+        if (dist < boardRadius * 0.06) { multiplier = 0; text = "BULLSEYE!"; points = 50; }
+        else if (dist < boardRadius * 0.12) { multiplier = 0; text = "Outer Bull"; points = 25;}
+        else if (dist > boardRadius * 0.52 && dist < boardRadius * 0.6) { multiplier = 3; text = `TRIPLE ${baseScore}!`; points = baseScore * multiplier; }
+        else if (dist > boardRadius * 0.92 && dist < boardRadius) { multiplier = 2; text = `DOUBLE ${baseScore}!`; points = baseScore * multiplier; }
+        else if (dist > boardRadius) { points = 0; text = "MISS"; }
+        else { points = baseScore; text = `${baseScore}`;}
+        
+        totalScore += points;
+        
+        showMessage(text || points.toString());
+        document.getElementById('totalScore').innerText = totalScore;
+        
+        const historyList = document.getElementById('history-list');
+        const p = document.createElement('p');
+        p.innerText = `پرتاب ${throwCount}: ${points}`;
+        historyList.prepend(p);
+        throwCount++;
+        
+        setTimeout(resetDartPos, 1500);
+    }
+
+    function showMessage(msg) {
+        const el = document.getElementById('message');
+        el.innerText = msg;
+        el.style.opacity = 1; el.style.transform = 'translate(-50%, -50%) scale(1.2)';
+        setTimeout(() => {
+            el.style.opacity = 0; el.style.transform = 'translate(-50%, -50%) scale(1)';
+        }, 1000);
+    }
+
+    function resetDartPos() {
+        dart.x = W/2; dart.y = throwY; dart.z = 0;
+        dart.vx = 0; dart.vy = 0; dart.vz = 0;
+        dart.state = 'ready';
+    }
+
+    function startInput(e) {
+        if(dart.state !== 'ready') return;
+        const cx = e.touches ? e.touches[0].clientX : e.clientX;
+        const cy = e.touches ? e.touches[0].clientY : e.clientY;
+        if(Math.hypot(cx - dart.x, cy - dart.y) < 60) {
+            isDragging = true;
+            dragStart = {x: cx, y: cy};
+            dragCurrent = {x: cx, y: cy};
+        }
+    }
+
+    function moveInput(e) {
+        if(!isDragging) return;
+        e.preventDefault(); 
+        dragCurrent = {
+            x: e.touches ? e.touches[0].clientX : e.clientX,
+            y: e.touches ? e.touches[0].clientY : e.clientY
+        };
+    }
+
+    function endInput(e) {
+        if(!isDragging) return;
+        isDragging = false;
+        const dx = dragStart.x - dragCurrent.x;
+        const dy = dragStart.y - dragCurrent.y;
+        const power = 0.15; 
+        const dragDistance = Math.hypot(dx, dy);
+
+        if(dragDistance < 10) return; // اگر کشش خیلی کم بود، پرتاب نکن
+
+        // *** اصلاح کلیدی فیزیک پرتاب ***
+        // یک نیروی اولیه قوی به سمت بالا اعمال می‌کنیم و آن را با حرکت کاربر تنظیم می‌کنیم
+        const baseUpwardVelocity = -12; 
+        dart.vy = baseUpwardVelocity + (dy * 0.05); // تاثیر حرکت عمودی کاربر کمتر شده
+        
+        dart.vx = dx * power;
+        dart.vz = 4 + (dragDistance * 0.05);
+        dart.state = 'flying';
+    }
+
+    window.addEventListener('mousedown', startInput);
+    window.addEventListener('mousemove', moveInput);
+    window.addEventListener('mouseup', endInput);
+    window.addEventListener('touchstart', startInput, {passive: false});
+    window.addEventListener('touchmove', moveInput, {passive: false});
+    window.addEventListener('touchend', endInput);
+
+</script>
+</body>
+</html>

@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="fa">
+<head>
+<meta charset="UTF-8">
+<title>Speed Ball</title>
+<style>
+body {
+    margin: 0;
+    background: #111;
+    font-family: Tahoma;
+    user-select: none;
+    touch-action: none;
+}
+
+#ui {
+    text-align: center;
+    color: #0f0;
+    margin: 10px;
+}
+
+#game {
+    width: 400px;
+    height: 600px;
+    background: #000;
+    margin: auto;
+    border: 3px solid #555;
+    position: relative;
+    overflow: hidden;
+}
+
+#ball {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: radial-gradient(circle, #00f, #0ff);
+    position: absolute;
+    bottom: 20px;
+    left: 180px;
+}
+
+.obstacle {
+    width: 80px;
+    height: 20px;
+    background: red;
+    border-radius: 10px;
+    position: absolute;
+    top: -20px;
+}
+
+#overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,.8);
+    color: white;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+}
+
+button {
+    margin-top: 15px;
+    padding: 10px 25px;
+    font-size: 16px;
+    cursor: pointer;
+}
+</style>
+</head>
+<body>
+
+<div id="ui">
+    مرحله: <span id="level">1</span> |
+    امتیاز: <span id="score">0</span>
+</div>
+
+<div id="game">
+    <div id="ball"></div>
+    <div id="overlay">
+        <div id="msg">🎮 شروع بازی</div>
+        <button onclick="startGame()">شروع</button>
+    </div>
+</div>
+
+<script>
+const game = document.getElementById("game");
+const ball = document.getElementById("ball");
+const overlay = document.getElementById("overlay");
+const msg = document.getElementById("msg");
+
+let ballX, score, level;
+let speed, playing;
+let spawnTimer;
+const gameWidth = 400;
+
+function startGame() {
+    document.querySelectorAll(".obstacle").forEach(o => o.remove());
+    ballX = 180;
+    score = 0;
+    level = 1;
+    speed = 4;
+    playing = true;
+    updateUI();
+    ball.style.left = ballX + "px";
+    overlay.style.display = "none";
+
+    clearInterval(spawnTimer);
+    spawnTimer = setInterval(createObstacle, 900);
+}
+
+function updateUI() {
+    levelSpan.innerText = level;
+    scoreSpan.innerText = score;
+}
+const levelSpan = document.getElementById("level");
+const scoreSpan = document.getElementById("score");
+
+/* کنترل کیبورد */
+document.addEventListener("keydown", e => {
+    if (!playing) return;
+    if (e.key === "ArrowLeft") moveBall(-30);
+    if (e.key === "ArrowRight") moveBall(30);
+});
+
+/* کنترل تاچ */
+game.addEventListener("touchstart", e => {
+    if (!playing) return;
+    const x = e.touches[0].clientX;
+    const rect = game.getBoundingClientRect();
+    if (x < rect.left + gameWidth / 2) moveBall(-40);
+    else moveBall(40);
+});
+
+function moveBall(dx) {
+    ballX = Math.max(0, Math.min(gameWidth - 40, ballX + dx));
+    ball.style.left = ballX + "px";
+}
+
+function createObstacle() {
+    if (!playing) return;
+
+    const ob = document.createElement("div");
+    ob.className = "obstacle";
+    ob.style.left = Math.random() * (gameWidth - 80) + "px";
+    game.appendChild(ob);
+
+    let y = -20;
+
+    const fall = setInterval(() => {
+        if (!playing) {
+            clearInterval(fall);
+            ob.remove();
+            return;
+        }
+
+        y += speed;
+        ob.style.top = y + "px";
+
+        /* برخورد واقعی */
+        const ballRect = ball.getBoundingClientRect();
+        const obRect = ob.getBoundingClientRect();
+
+        if (
+            ballRect.left < obRect.right &&
+            ballRect.right > obRect.left &&
+            ballRect.top < obRect.bottom &&
+            ballRect.bottom > obRect.top
+        ) {
+            gameOver();
+            clearInterval(fall);
+        }
+
+        if (y > 620) {
+            clearInterval(fall);
+            ob.remove();
+            score++;
+            if (score % 6 === 0) {
+                level++;
+                speed++;
+            }
+            updateUI();
+        }
+    }, 20);
+}
+
+function gameOver() {
+    playing = false;
+    clearInterval(spawnTimer);
+    msg.innerText = "❌ باختی";
+    overlay.style.display = "flex";
+}
+</script>
+
+</body>
+</html>

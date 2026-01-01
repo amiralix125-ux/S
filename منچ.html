@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>منچ نئونی | Neon Ludo</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Lalezar&family=Vazirmatn:wght@400;700&display=swap');
+
+        :root {
+            --bg-color: #0f0c29;
+            --board-bg: #1e1e2f;
+            --red: #ff0055;
+            --green: #00ff55;
+            --blue: #00ccff;
+            --yellow: #ffcc00;
+            --neon-glow: 0 0 10px;
+        }
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background: radial-gradient(circle at center, #302b63, #0f0c29);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Vazirmatn', sans-serif;
+            overflow: hidden;
+            color: white;
+        }
+
+        /* --- صفحه شروع --- */
+        #start-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 12, 41, 0.95);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+        }
+
+        h1 {
+            font-family: 'Lalezar', cursive;
+            font-size: 4rem;
+            text-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+            margin-bottom: 2rem;
+            background: linear-gradient(to right, var(--red), var(--blue));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .menu-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 15px 40px;
+            margin: 10px;
+            font-size: 1.5rem;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 200px;
+            text-align: center;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            font-family: 'Lalezar';
+        }
+
+        .menu-btn:hover {
+            transform: scale(1.1);
+            background: rgba(255, 255, 255, 0.2);
+            border-color: var(--blue);
+            box-shadow: 0 0 20px var(--blue);
+        }
+
+        /* --- محیط بازی --- */
+        #game-container {
+            position: relative;
+            width: 95vmin;
+            height: 95vmin;
+            max-width: 600px;
+            max-height: 600px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* برد منچ */
+        .ludo-board {
+            width: 100%;
+            height: 100%;
+            background: var(--board-bg);
+            display: grid;
+            grid-template-columns: repeat(15, 1fr);
+            grid-template-rows: repeat(15, 1fr);
+            border-radius: 20px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5), 
+                        inset 0 0 50px rgba(0,0,0,0.5);
+            padding: 5px;
+            gap: 1px;
+            border: 5px solid rgba(255,255,255,0.1);
+        }
+
+        .cell {
+            background: rgba(255,255,255,0.05);
+            border-radius: 2px;
+            position: relative;
+        }
+
+        /* رنگ‌بندی خانه‌ها */
+        .c-red { background: rgba(255, 0, 85, 0.2); border: 1px solid rgba(255, 0, 85, 0.3); }
+        .c-green { background: rgba(0, 255, 85, 0.2); border: 1px solid rgba(0, 255, 85, 0.3); }
+        .c-blue { background: rgba(0, 204, 255, 0.2); border: 1px solid rgba(0, 204, 255, 0.3); }
+        .c-yellow { background: rgba(255, 204, 0, 0.2); border: 1px solid rgba(255, 204, 0, 0.3); }
+
+        .safe-spot {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white' opacity='0.5'%3E%3Cpath d='M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z'/%3E%3C/svg%3E");
+            background-size: 60%;
+            background-position: center;
+            background-repeat: no-repeat;
+        }
+
+        /* بیس‌ها (خانه شروع) */
+        .base {
+            grid-row: span 6;
+            grid-column: span 6;
+            border-radius: 15px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
+        }
+        .base-inner {
+            width: 70%;
+            height: 70%;
+            background: rgba(255,255,255,0.1);
+            border-radius: 15px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+            place-items: center;
+        }
+        .base-spot {
+            width: 30px;
+            height: 30px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 50%;
+            box-shadow: inset 0 2px 5px rgba(0,0,0,0.5);
+        }
+
+        .base.red { background: var(--red); box-shadow: 0 0 20px var(--red); }
+        .base.green { background: var(--green); box-shadow: 0 0 20px var(--green); }
+        .base.blue { background: var(--blue); box-shadow: 0 0 20px var(--blue); }
+        .base.yellow { background: var(--yellow); box-shadow: 0 0 20px var(--yellow); }
+
+        /* مرکز (خانه پایان) */
+        .home-center {
+            grid-column: 7 / span 3;
+            grid-row: 7 / span 3;
+            position: relative;
+            overflow: hidden;
+        }
+        .triangle {
+            position: absolute;
+            width: 0;
+            height: 0;
+            border-style: solid;
+        }
+        .tri-green { border-width: 0 0 47.5vmin 47.5vmin; border-color: transparent transparent transparent var(--green); opacity: 0.3; top:0; left:0; transform: scale(0.15) rotate(45deg); transform-origin: top left; } /* Simplified via CSS shapes overlay in JS/HTML structure better */
+        
+        /* برای سادگی مرکز را با تصویر SVG می‌سازیم */
+        .home-bg {
+            width: 100%; height: 100%;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpolygon points='0,0 50,50 0,100' fill='%2300ff55' opacity='0.3'/%3E%3Cpolygon points='0,0 100,0 50,50' fill='%23ffcc00' opacity='0.3'/%3E%3Cpolygon points='100,0 100,100 50,50' fill='%2300ccff' opacity='0.3'/%3E%3Cpolygon points='0,100 100,100 50,50' fill='%23ff0055' opacity='0.3'/%3E%3C/svg%3E");
+            background-size: cover;
+        }
+
+        /* --- مهره‌ها --- */
+        .piece {
+            width: 70%;
+            height: 70%;
+            border-radius: 50%;
+            position: absolute;
+            z-index: 10;
+            top: 15%;
+            left: 15%;
+            box-shadow: 0 5px 10px rgba(0,0,0,0.5), inset 0 2px 5px rgba(255,255,255,0.8);
+            cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            border: 2px solid rgba(255,255,255,0.5);
+        }
+        .piece::after {
+            content: '';
+            position: absolute;
+            top: 20%; left: 20%;
+            width: 30%; height: 30%;
+            background: rgba(255,255,255,0.6);
+            border-radius: 50%;
+            filter: blur(1px);
+        }
+
+        .p-red { background: linear-gradient(135deg, #ff4d88, #b3003b); box-shadow: 0 0 10px var(--red); }
+        .p-green { background: linear-gradient(135deg, #4dff88, #00b33b); box-shadow: 0 0 10px var(--green); }
+        .p-blue { background: linear-gradient(135deg, #4dcfff, #0088b3); box-shadow: 0 0 10px var(--blue); }
+        .p-yellow { background: linear-gradient(135deg, #ffeb4d, #b38f00); box-shadow: 0 0 10px var(--yellow); }
+
+        .piece.clickable {
+            animation: bounce 1s infinite;
+            filter: brightness(1.3);
+            z-index: 20;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.2) translateY(-5px); }
+        }
+
+        /* --- کنترل‌ها و تاس --- */
+        .controls {
+            position: absolute;
+            bottom: -80px;
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 20px;
+        }
+
+        .player-card {
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(5px);
+            padding: 10px 20px;
+            border-radius: 10px;
+            border: 1px solid rgba(255,255,255,0.1);
+            text-align: center;
+            opacity: 0.5;
+            transition: all 0.3s;
+        }
+        .player-card.active {
+            opacity: 1;
+            transform: scale(1.1);
+            border-color: white;
+            box-shadow: 0 0 15px rgba(255,255,255,0.3);
+        }
+
+        /* تاس سه بعدی */
+        .scene {
+            width: 60px;
+            height: 60px;
+            perspective: 200px;
+            cursor: pointer;
+        }
+
+        .cube {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            transform-style: preserve-3d;
+            transform: translateZ(-30px);
+            transition: transform 1s;
+        }
+
+        .cube__face {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            background: rgba(255, 255, 255, 0.9);
+            border: 2px solid #ccc;
+            border-radius: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 20px;
+            font-weight: bold;
+            color: #333;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.2);
+        }
+
+        .cube__face--1 { transform: rotateY(  0deg) translateZ(30px); }
+        .cube__face--2 { transform: rotateY( 90deg) translateZ(30px); }
+        .cube__face--3 { transform: rotateY(180deg) translateZ(30px); }
+        .cube__face--4 { transform: rotateY(-90deg) translateZ(30px); }
+        .cube__face--5 { transform: rotateX( 90deg) translateZ(30px); }
+        .cube__face--6 { transform: rotateX(-90deg) translateZ(30px); }
+
+        .dot {
+            width: 10px; height: 10px; background: #333; border-radius: 50%; margin: 2px;
+            display: inline-block;
+        }
+
+        /* چیدمان نقاط تاس */
+        .f1 { display:flex; justify-content:center; align-items:center; }
+        .f2 { display:flex; justify-content:space-between; padding:10px; }
+        .f2 .dot:nth-child(2) { align-self: flex-end; }
+        .f3 { display:flex; justify-content:space-between; padding:10px; }
+        .f3 .dot:nth-child(2) { align-self: center; }
+        .f3 .dot:nth-child(3) { align-self: flex-end; }
+        .f4 { display:grid; grid-template-columns: 1fr 1fr; place-items:center; padding: 10px; }
+        .f5 { display:grid; grid-template-columns: 1fr 1fr; place-items:center; padding: 10px; }
+        .f5 .dot:nth-child(5) { grid-column: span 2; position:absolute; }
+        .f6 { display:grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr 1fr; place-items:center; padding: 5px; }
+
+        .dice-container {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 50;
+        }
+
+        #turn-indicator {
+            position: absolute;
+            top: -60px;
+            background: rgba(0,0,0,0.5);
+            padding: 5px 20px;
+            border-radius: 20px;
+            border: 1px solid white;
+        }
+
+        /* مودال برنده */
+        #winner-modal {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 200;
+        }
+        .trophy { font-size: 5rem; animation: bounce 1s infinite; }
+
+    </style>
+</head>
+<body>
+
+    <!-- صفحه شروع -->
+    <div id="start-screen">
+        <h1>منچ نئونی</h1>
+        <div class="menu-btn" onclick="startGame(2)">۲ بازیکن</div>
+        <div class="menu-btn" onclick="startGame(3)">۳ بازیکن</div>
+        <div class="menu-btn" onclick="startGame(4)">۴ بازیکن</div>
+    </div>
+
+    <!-- مودال برنده -->
+    <div id="winner-modal">
+        <div class="trophy">🏆</div>
+        <h1 id="winner-text" style="color: gold;">بازیکن X برنده شد!</h1>
+        <div class="menu-btn" onclick="location.reload()">بازی مجدد</div>
+    </div>
+
+    <div id="turn-indicator">نوبت: سبز</div>
+
+    <div id="game-container">
+        <div class="ludo-board" id="board">
+            <!-- خانه‌های برد توسط جاوا اسکریپت ساخته می‌شوند -->
+            
+            <!-- بیس‌ها -->
+            <div class="base green" style="grid-area: 1/1/7/7;">
+                <div class="base-inner">
+                    <div class="base-spot" id="base-g-0"></div><div class="base-spot" id="base-g-1"></div>
+                    <div class="base-spot" id="base-g-2"></div><div class="base-spot" id="base-g-3"></div>
+                </div>
+            </div>
+            <div class="base yellow" style="grid-area: 1/10/7/16;">
+                <div class="base-inner">
+                    <div class="base-spot" id="base-y-0"></div><div class="base-spot" id="base-y-1"></div>
+                    <div class="base-spot" id="base-y-2"></div><div class="base-spot" id="base-y-3"></div>
+                </div>
+            </div>
+            <div class="base red" style="grid-area: 10/1/16/7;">
+                <div class="base-inner">
+                    <div class="base-spot" id="base-r-0"></div><div class="base-spot" id="base-r-1"></div>
+                    <div class="base-spot" id="base-r-2"></div><div class="base-spot" id="base-r-3"></div>
+                </div>
+            </div>
+            <div class="base blue" style="grid-area: 10/10/16/16;">
+                <div class="base-inner">
+                    <div class="base-spot" id="base-b-0"></div><div class="base-spot" id="base-b-1"></div>
+                    <div class="base-spot" id="base-b-2"></div><div class="base-spot" id="base-b-3"></div>
+                </div>
+            </div>
+
+            <div class="home-center">
+                <div class="home-bg"></div>
+            </div>
+        </div>
+
+        <!-- تاس -->
+        <div class="dice-container">
+            <div class="scene">
+                <div class="cube" id="dice">
+                    <div class="cube__face cube__face--1 f1"><div class="dot"></div></div>
+                    <div class="cube__face cube__face--2 f2"><div class="dot"></div><div class="dot"></div></div>
+                    <div class="cube__face cube__face--3 f3"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+                    <div class="cube__face cube__face--4 f4"><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+                    <div class="cube__face cube__face--5 f5"><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+                    <div class="cube__face cube__face--6 f6"><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- تنظیمات صوتی ---
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playSound(type) {
+            if(audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            const now = audioCtx.currentTime;
+
+            if (type === 'dice') {
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(400, now);
+                osc.frequency.exponentialRampToValueAtTime(100, now + 0.1);
+                gain.gain.setValueAtTime(0.1, now);
+                gain.gain.linearRampToValueAtTime(0, now + 0.1);
+                osc.start(now); osc.stop(now + 0.1);
+            } else if (type === 'move') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(300, now);
+                osc.frequency.linearRampToValueAtTime(600, now + 0.1);
+                gain.gain.setValueAtTime(0.1, now);
+                gain.gain.linearRampToValueAtTime(0, now + 0.1);
+                osc.start(now); osc.stop(now + 0.1);
+            } else if (type === 'kill') {
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(100, now);
+                osc.frequency.linearRampToValueAtTime(50, now + 0.3);
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.linearRampToValueAtTime(0, now + 0.3);
+                osc.start(now); osc.stop(now + 0.3);
+            }
+        }
+
+        // --- منطق بازی ---
+        const boardEl = document.getElementById('board');
+        const diceEl = document.getElementById('dice');
+        const turnText = document.getElementById('turn-indicator');
+        
+        let playerCount = 2;
+        let currentPlayerIndex = 0; // 0: Green, 1: Yellow, 2: Blue, 3: Red
+        let players = [];
+        let diceValue = 1;
+        let isDiceRolled = false;
+        let isAnimating = false;
+
+        // مختصات مسیر (Coordinate Map) - تبدیل ایندکس مسیر به Row/Col گرید
+        // مسیر عمومی (52 خانه)
+        const pathCoords = [
+            // Green Start Path (0-11)
+            [7,2],[7,3],[7,4],[7,5],[7,6], [6,7],[5,7],[4,7],[3,7],[2,7],[1,7],[1,8],
+            // Yellow Start Path (12-24)
+            [1,9],[2,9],[3,9],[4,9],[5,9],[6,9], [7,10],[7,11],[7,12],[7,13],[7,14],[7,15],[8,15],
+            // Blue Start Path (25-37)
+            [9,15],[9,14],[9,13],[9,12],[9,11],[9,10], [10,9],[11,9],[12,9],[13,9],[14,9],[15,9],[15,8],
+            // Red Start Path (38-51)
+            [15,7],[14,7],[13,7],[12,7],[11,7],[10,7], [9,6],[9,5],[9,4],[9,3],[9,2],[9,1],[8,1]
+        ];
+
+        // مسیرهای خانگی (Home Stretch)
+        const homePaths = {
+            green: [[8,2],[8,3],[8,4],[8,5],[8,6],[8,7]], // Center at 8,8 approx logic
+            yellow: [[2,8],[3,8],[4,8],[5,8],[6,8],[7,8]],
+            blue: [[8,14],[8,13],[8,12],[8,11],[8,10],[8,9]],
+            red: [[14,8],[13,8],[12,8],[11,8],[10,8],[9,8]]
+        };
+
+        // نقاط امن (Safe Spots)
+        const safeIndices = [0, 8, 13, 21, 26, 34, 39, 47];
+
+        function createGrid() {
+            // ساختن سلول‌های مسیر
+            pathCoords.forEach((coord, i) => {
+                const div = document.createElement('div');
+                div.className = 'cell';
+                div.style.gridRow = coord[0];
+                div.style.gridColumn = coord[1];
+                div.id = `cell-${i}`;
+                
+                // رنگ آمیزی ورودی‌ها و نقاط امن
+                if(i === 1) div.classList.add('c-green'); // Green Start
+                if(i === 14) div.classList.add('c-yellow'); // Yellow Start
+                if(i === 27) div.classList.add('c-blue'); // Blue Start
+                if(i === 40) div.classList.add('c-red'); // Red Start
+                
+                if(safeIndices.includes(i)) div.classList.add('safe-spot');
+
+                boardEl.appendChild(div);
+            });
+
+            // ساختن سلول‌های خانه (Home Stretch)
+            createHomeStretch(homePaths.green, 'c-green', 'home-g');
+            createHomeStretch(homePaths.yellow, 'c-yellow', 'home-y');
+            createHomeStretch(homePaths.blue, 'c-blue', 'home-b');
+            createHomeStretch(homePaths.red, 'c-red', 'home-r');
+        }
+
+        function createHomeStretch(coords, colorClass, idPrefix) {
+            coords.forEach((coord, i) => {
+                if (i === 5) return; // خانه آخر خود مرکز است
+                const div = document.createElement('div');
+                div.className = `cell ${colorClass}`;
+                div.style.gridRow = coord[0];
+                div.style.gridColumn = coord[1];
+                div.id = `${idPrefix}-${i}`;
+                boardEl.appendChild(div);
+            });
+        }
+
+        function startGame(count) {
+            playerCount = count;
+            document.getElementById('start-screen').style.display = 'none';
+            createGrid();
+            
+            // تعریف بازیکنان
+            // 0: Green, 1: Yellow, 2: Blue, 3: Red (Clockwise order for turns)
+            const allColors = ['green', 'yellow', 'blue', 'red'];
+            let activeColors = [];
+
+            if (count === 2) activeColors = ['green', 'blue']; // Opposite sides
+            else if (count === 3) activeColors = ['green', 'yellow', 'blue'];
+            else activeColors = ['green', 'yellow', 'blue', 'red'];
+
+            activeColors.forEach((color, idx) => {
+                players.push({
+                    id: idx,
+                    color: color,
+                    pieces: [
+                        {id: 0, pos: -1, state: 'base'}, // -1: base, 0-51: board, 100+: home
+                        {id: 1, pos: -1, state: 'base'},
+                        {id: 2, pos: -1, state: 'base'},
+                        {id: 3, pos: -1, state: 'base'}
+                    ],
+                    startOffset: getStartOffset(color)
+                });
+                // رندر مهره‌ها در بیس
+                renderPiecesInBase(idx);
+            });
+
+            currentPlayerIndex = 0;
+            updateTurnUI();
+            
+            diceEl.parentElement.addEventListener('click', rollDice);
+        }
+
+        function getStartOffset(color) {
+            if(color === 'green') return 1; // Cell 1
+            if(color === 'yellow') return 14; // Cell 14
+            if(color === 'blue') return 27; // Cell 27
+            if(color === 'red') return 40; // Cell 40
+            return 0;
+        }
+
+        function renderPiecesInBase(pIndex) {
+            const player = players[pIndex];
+            const prefix = player.color.charAt(0); // g, y, b, r
+            
+            player.pieces.forEach(p => {
+                if(p.state === 'base') {
+                    const spot = document.getElementById(`base-${prefix}-${p.id}`);
+                    if(spot && !spot.hasChildNodes()) {
+                        const pieceEl = document.createElement('div');
+                        pieceEl.className = `piece p-${player.color}`;
+                        pieceEl.id = `piece-${pIndex}-${p.id}`;
+                        pieceEl.onclick = (e) => pieceClick(e, pIndex, p.id);
+                        spot.appendChild(pieceEl);
+                    }
+                }
+            });
+        }
+
+        function rollDice() {
+            if (isAnimating || isDiceRolled) return;
+            
+            isAnimating = true;
+            playSound('dice');
+            
+            // انیمیشن تاس
+            const randX = Math.floor(Math.random() * 4) * 360 + 720;
+            const randY = Math.floor(Math.random() * 4) * 360 + 720;
+            
+            diceValue = Math.floor(Math.random() * 6) + 1;
+            
+            let rotX = 0, rotY = 0;
+            // تنظیم چرخش نهایی بر اساس عدد
+            switch(diceValue) {
+                case 1: rotX=0; rotY=0; break;
+                case 2: rotX=0; rotY=-90; break;
+                case 3: rotX=0; rotY=180; break;
+                case 4: rotX=0; rotY=90; break;
+                case 5: rotX=-90; rotY=0; break;
+                case 6: rotX=90; rotY=0; break;
+            }
+
+            diceEl.style.transform = `rotateX(${randX + rotX}deg) rotateY(${randY + rotY}deg)`;
+
+            setTimeout(() => {
+                isAnimating = false;
+                isDiceRolled = true;
+                checkMoves();
+            }, 1000);
+        }
+
+        function checkMoves() {
+            const player = players[currentPlayerIndex];
+            let hasMoves = false;
+
+            player.pieces.forEach(p => {
+                const el = document.getElementById(`piece-${currentPlayerIndex}-${p.id}`);
+                el.classList.remove('clickable');
+                
+                let canMove = false;
+                if (p.state === 'base') {
+                    if (diceValue === 6) canMove = true;
+                } else if (p.state === 'board' || p.state === 'home') {
+                    // منطق ساده: اگر از خانه خارج نشود
+                    if (p.pos + diceValue < 57) { // 56 is max (end of home)
+                         canMove = true;
+                    }
+                }
+
+                if (canMove) {
+                    el.classList.add('clickable');
+                    hasMoves = true;
+                }
+            });
+
+            if (!hasMoves) {
+                setTimeout(nextTurn, 1000);
+            }
+        }
+
+        function pieceClick(e, pIdx, pieceId) {
+            e.stopPropagation();
+            if (!isDiceRolled || pIdx !== players[currentPlayerIndex].id) return;
+            
+            const player = players.find(p => p.id === pIdx);
+            const piece = player.pieces[pieceId];
+            const el = document.getElementById(`piece-${pIdx}-${pieceId}`);
+
+            if (!el.classList.contains('clickable')) return;
+
+            // انجام حرکت
+            if (piece.state === 'base') {
+                // خروج از بیس
+                piece.state = 'board';
+                piece.pos = 0; // Relative position (0 is start point)
+                movePieceToCell(el, player, 0);
+            } else {
+                // حرکت روی برد
+                piece.pos += diceValue;
+                movePieceToCell(el, player, piece.pos);
+            }
+
+            // چک کردن جایزه نوبت (تاس 6)
+            isDiceRolled = false;
+            document.querySelectorAll('.piece').forEach(p => p.classList.remove('clickable'));
+
+            if (checkWin(player)) {
+                playSound('move'); // Win sound
+                document.getElementById('winner-modal').style.display = 'flex';
+                document.getElementById('winner-text').innerText = `بازیکن ${getColorName(player.color)} برنده شد!`;
+                return;
+            }
+
+            if (diceValue === 6) {
+                // نوبت جایزه
+                playSound('move');
+                turnText.innerText += " (جایزه)";
+            } else {
+                playSound('move');
+                setTimeout(nextTurn, 500);
+            }
+        }
+
+        function movePieceToCell(el, player, relativePos) {
+            // محاسبه موقعیت مطلق روی گرید
+            let targetCellId = '';
+            
+            if (relativePos < 51) {
+                // روی مسیر اصلی
+                // محاسبه ایندکس جهانی (0-51) با در نظر گرفتن آفست بازیکن
+                let globalIndex = (player.startOffset + relativePos) % 52;
+                targetCellId = `cell-${globalIndex}`;
+                
+                // چک کردن برخورد (Capturing)
+                checkCollision(globalIndex, player.id);
+
+            } else {
+                // وارد خانه شده
+                let homeIndex = relativePos - 51; // 0 to 5
+                if (homeIndex > 4) {
+                    // رسیده به مرکز - حذف از DOM یا گذاشتن در مرکز
+                    el.style.display = 'none'; // فعلا محو می‌کنیم
+                    player.piecesFinished = (player.piecesFinished || 0) + 1;
+                    return;
+                }
+                const prefix = player.color.charAt(0);
+                targetCellId = `home-${prefix}-${homeIndex}`;
+            }
+
+            const targetCell = document.getElementById(targetCellId);
+            if(targetCell) {
+                targetCell.appendChild(el);
+            }
+        }
+
+        function checkCollision(globalIdx, attackerId) {
+            if (safeIndices.includes(globalIdx)) return;
+
+            // جستجو در تمام بازیکنان دیگر
+            players.forEach(p => {
+                if (p.id !== attackerId) {
+                    p.pieces.forEach(enemyPiece => {
+                        if (enemyPiece.state === 'board') {
+                            let enemyGlobalPos = (p.startOffset + enemyPiece.pos) % 52;
+                            if (enemyGlobalPos === globalIdx) {
+                                // زدن مهره!
+                                killPiece(p, enemyPiece);
+                            }
+                        }
+                    });
+                }
+            });
+        }
+
+        function killPiece(victimPlayer, victimPiece) {
+            playSound('kill');
+            victimPiece.state = 'base';
+            victimPiece.pos = -1;
+            
+            const el = document.getElementById(`piece-${victimPlayer.id}-${victimPiece.id}`);
+            const prefix = victimPlayer.color.charAt(0);
+            const baseSpot = document.getElementById(`base-${prefix}-${victimPiece.id}`);
+            baseSpot.appendChild(el);
+        }
+
+        function checkWin(player) {
+            let finished = 0;
+            player.pieces.forEach(p => {
+                if (p.pos >= 56) finished++; // 51 + 5 steps to center
+            });
+            return finished === 4;
+        }
+
+        function nextTurn() {
+            isDiceRolled = false;
+            currentPlayerIndex = (currentPlayerIndex + 1) % players.length;
+            updateTurnUI();
+        }
+
+        function updateTurnUI() {
+            const player = players[currentPlayerIndex];
+            turnText.innerText = `نوبت: ${getColorName(player.color)}`;
+            turnText.style.color = getHexColor(player.color);
+            turnText.style.borderColor = getHexColor(player.color);
+            
+            // چرخش دوربین یا UI برای اشاره به بازیکن فعال (اختیاری)
+            diceEl.style.transform = 'rotateX(0) rotateY(0)'; // Reset dice visual
+        }
+
+        function getColorName(c) {
+            if(c==='green') return 'سبز';
+            if(c==='red') return 'قرمز';
+            if(c==='blue') return 'آبی';
+            if(c==='yellow') return 'زرد';
+        }
+        function getHexColor(c) {
+            if(c==='green') return '#00ff55';
+            if(c==='red') return '#ff0055';
+            if(c==='blue') return '#00ccff';
+            if(c==='yellow') return '#ffcc00';
+        }
+
+    </script>
+</body>
+</html>

@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>بازی بولینگ نئونی</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Lalezar&display=swap');
+
+        :root {
+            --bg-color: #1a0b2e;
+            --neon-blue: #00f2ff;
+            --neon-pink: #ff00ff;
+            --ball-red: #d63031;
+            --text-color: #ffffff;
+            --btn-color: #ff9f43;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            background-image: radial-gradient(circle at center, #2d1b4e 0%, #1a0b2e 100%);
+            font-family: 'Lalezar', cursive;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            color: var(--text-color);
+        }
+
+        #game-container {
+            position: relative;
+            width: 100%;
+            max-width: 500px;
+            height: 100vh;
+            max-height: 900px;
+            box-shadow: 0 0 50px rgba(0, 242, 255, 0.2);
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* --- UI Elements --- */
+        .ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none; /* Let clicks pass through to canvas/buttons */
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        /* Scorecard */
+        .scorecard {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            width: 140px;
+            padding: 10px;
+            border: 2px solid var(--neon-blue);
+            border-radius: 10px;
+            box-shadow: 0 0 10px var(--neon-blue), inset 0 0 10px rgba(0, 242, 255, 0.2);
+            background: rgba(0, 0, 0, 0.5);
+            text-align: center;
+            z-index: 10;
+        }
+        
+        .scorecard h3 {
+            margin: 0 0 5px 0;
+            color: var(--neon-blue);
+            text-shadow: 0 0 5px var(--neon-blue);
+            font-size: 1.2rem;
+            letter-spacing: 1px;
+        }
+
+        .score-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 5px;
+            font-size: 0.9rem;
+        }
+        .score-label { color: #aaa; font-size: 0.8rem; }
+        .score-value { font-size: 1.2rem; color: #fff; }
+
+        /* Title Area */
+        .title-area {
+            position: absolute;
+            top: 15%;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+            opacity: 0; /* Hidden during game, visible in menu */
+            transition: opacity 0.5s;
+            z-index: 20;
+        }
+
+        .game-title {
+            font-size: 4rem;
+            color: var(--neon-blue);
+            text-shadow: 
+                0 0 5px #fff,
+                0 0 10px #fff,
+                0 0 20px var(--neon-blue),
+                0 0 40px var(--neon-blue);
+            margin: 0;
+            line-height: 1;
+        }
+        
+        .sub-title {
+            font-size: 1.5rem;
+            color: var(--neon-pink);
+            text-shadow: 0 0 5px var(--neon-pink);
+        }
+
+        /* Power Meter */
+        .power-meter-container {
+            position: absolute;
+            bottom: 120px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 200px;
+            height: 20px;
+            border: 2px solid #fff;
+            border-radius: 10px;
+            overflow: hidden;
+            display: none; /* Hidden initially */
+            box-shadow: 0 0 10px var(--neon-pink);
+        }
+        
+        .power-bar {
+            width: 0%;
+            height: 100%;
+            background: linear-gradient(90deg, #ff00de, #ff79e9);
+            box-shadow: 0 0 10px var(--neon-pink);
+        }
+
+        /* Controls / Messages */
+        .message-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            pointer-events: auto;
+            z-index: 30;
+        }
+
+        .btn-play {
+            background: linear-gradient(to bottom, #ffbd4a, #ff9f43);
+            border: 2px solid #fff;
+            padding: 15px 50px;
+            border-radius: 30px;
+            font-size: 1.8rem;
+            color: #fff;
+            font-family: 'Lalezar', cursive;
+            cursor: pointer;
+            box-shadow: 
+                0 5px 0 #e67e22,
+                0 0 20px rgba(255, 159, 67, 0.6);
+            transition: transform 0.1s;
+            text-shadow: 1px 1px 0 rgba(0,0,0,0.3);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .btn-play:active {
+            transform: translateY(4px);
+            box-shadow: 0 1px 0 #e67e22;
+        }
+
+        .instruction-text {
+            color: #fff;
+            font-size: 1.5rem;
+            text-shadow: 0 0 5px black;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        /* --- Canvas Layer Effects --- */
+        .neon-floor {
+            /* Simulated via JS Canvas, but CSS helps with container glow */
+        }
+
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- UI Overlay -->
+    <div class="ui-layer">
+        <!-- Scorecard -->
+        <div class="scorecard">
+            <h3>SCORECARD</h3>
+            <div class="score-grid">
+                <div class="score-label">پین‌ها</div>
+                <div class="score-label">مجموع</div>
+                <div class="score-value" id="pins-score">0</div>
+                <div class="score-value" id="total-score">0</div>
+            </div>
+        </div>
+
+        <!-- Power Meter -->
+        <div class="power-meter-container" id="powerMeter">
+            <div class="power-bar" id="powerBar"></div>
+        </div>
+    </div>
+
+    <!-- Menus -->
+    <div class="title-area" id="mainTitle">
+        <h1 class="game-title">بولینگ</h1>
+        <div class="sub-title">Neon Bowl</div>
+    </div>
+
+    <div class="message-overlay" id="menuOverlay">
+        <button class="btn-play" id="playBtn">
+            <span>بازی کن</span>
+            <span>🎳</span>
+        </button>
+    </div>
+    
+    <div class="message-overlay" style="display: none;" id="gameOverlay">
+        <div class="instruction-text" id="gameText">برای هدف‌گیری ضربه بزنید</div>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const playBtn = document.getElementById('playBtn');
+    const menuOverlay = document.getElementById('menuOverlay');
+    const mainTitle = document.getElementById('mainTitle');
+    const powerMeter = document.getElementById('powerMeter');
+    const powerBar = document.getElementById('powerBar');
+    const gameOverlay = document.getElementById('gameOverlay');
+    const gameText = document.getElementById('gameText');
+    const pinsScoreEl = document.getElementById('pins-score');
+    const totalScoreEl = document.getElementById('total-score');
+
+    let width, height;
+
+    // --- Audio Context for Sounds ---
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    const audioCtx = new AudioContext();
+
+    function playSound(type) {
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        
+        const now = audioCtx.currentTime;
+
+        if (type === 'roll') {
+            // Rolling sound (low rumble noise simulation via oscillator)
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(100, now);
+            osc.frequency.exponentialRampToValueAtTime(50, now + 1);
+            gain.gain.setValueAtTime(0.1, now);
+            gain.gain.linearRampToValueAtTime(0, now + 1);
+            osc.start(now);
+            osc.stop(now + 1);
+        } else if (type === 'hit') {
+            // Pins hit (crash sound)
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(300, now);
+            osc.frequency.exponentialRampToValueAtTime(50, now + 0.2);
+            gain.gain.setValueAtTime(0.3, now);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+            osc.start(now);
+            osc.stop(now + 0.3);
+        }
+    }
+
+    // --- Game State ---
+    const STATE = {
+        MENU: 0,
+        AIMING: 1,
+        POWERING: 2,
+        ROLLING: 3,
+        SETTLING: 4,
+        RESETTING: 5
+    };
+    let currentState = STATE.MENU;
+
+    // --- Physics & Entities ---
+    const LANE_TOP_WIDTH_RATIO = 0.4; // Perspective: lane is narrower at top
+    let ball = { x: 0, y: 0, z: 0, radius: 25, vx: 0, vy: 0, speed: 0 };
+    let pins = [];
+    let aimAngle = 0;
+    let aimDirection = 1; // 1 = right, -1 = left
+    let power = 0;
+    let powerDirection = 1; // 1 = increasing, -1 = decreasing
+    let score = 0;
+    let pinsDownCount = 0;
+
+    function resize() {
+        width = canvas.parentElement.clientWidth;
+        height = canvas.parentElement.clientHeight;
+        canvas.width = width;
+        canvas.height = height;
+        resetBall();
+    }
+    window.addEventListener('resize', resize);
+
+    function initPins() {
+        pins = [];
+        const rows = 4;
+        const pinSpacing = 12; // Spacing in logic units
+        const startZ = 0.9; // 0.9 = near the end of the lane (1.0 is far end)
+        
+        // Arrange in triangle
+        // Row 1: 1 pin
+        // Row 2: 2 pins
+        // ...
+        let rowZ = startZ;
+        for (let r = 0; r < rows; r++) {
+            // Center the row
+            let startX = -((r * pinSpacing) / 2);
+            for (let c = 0; c <= r; c++) {
+                pins.push({
+                    x: startX + (c * pinSpacing), // Logic X (-50 to 50 approx)
+                    z: rowZ,                      // Logic Z (0 to 1) -> 0 is near player, 1 is pins
+                    active: true,
+                    knocked: false,
+                    vx: 0, vy: 0,
+                    rotation: 0
+                });
+            }
+            rowZ += 0.03; // Next row slightly further back
+        }
+    }
+
+    function resetBall() {
+        ball.x = 0; // Center
+        ball.z = 0; // Start of lane
+        ball.vx = 0;
+        ball.vy = 0; // In logic, Y is Z actually
+    }
+
+    function startGame() {
+        currentState = STATE.AIMING;
+        menuOverlay.style.display = 'none';
+        mainTitle.style.opacity = '0';
+        gameOverlay.style.display = 'flex';
+        gameText.innerText = "برای قفل کردن جهت ضربه بزنید";
+        gameText.style.display = 'block';
+        score = 0;
+        pinsDownCount = 0;
+        updateScoreUI();
+        initPins();
+        resetBall();
+        animate();
+    }
+
+    function handleInput(e) {
+        if (e.type === 'touchstart') e.preventDefault(); // Prevent double firing on some devices
+
+        if (currentState === STATE.AIMING) {
+            currentState = STATE.POWERING;
+            gameText.innerText = "برای تعیین قدرت ضربه بزنید";
+            powerMeter.style.display = 'block';
+        } else if (currentState === STATE.POWERING) {
+            currentState = STATE.ROLLING;
+            gameText.style.display = 'none';
+            powerMeter.style.display = 'none';
+            
+            // Launch Ball
+            const speed = 0.015 + (power / 100) * 0.035; // Logic speed
+            ball.vx = Math.sin(aimAngle) * speed;
+            ball.vy = Math.cos(aimAngle) * speed; // Moving along Z axis
+            playSound('roll');
+        } else if (currentState === STATE.RESETTING) {
+            currentState = STATE.AIMING;
+            gameText.innerText = "برای هدف‌گیری ضربه بزنید";
+            gameText.style.display = 'block';
+            resetBall();
+            // If all pins down, reset pins. Else keep remaining pins.
+            const standingPins = pins.filter(p => !p.knocked).length;
+            if (standingPins === 0 || pinsDownCount === 10) {
+                initPins();
+                pinsDownCount = 0; // Reset frame count for simplicity in this endless mode
+                pinsScoreEl.innerText = 0;
+            }
+        }
+    }
+
+    canvas.addEventListener('mousedown', handleInput);
+    canvas.addEventListener('touchstart', handleInput);
+    playBtn.addEventListener('click', startGame);
+
+    // --- Math Helpers for Perspective ---
+    // Map Logic coordinates (X: -50 to 50, Z: 0 to 1) to Screen Coordinates
+    function getScreenCoords(lx, lz) {
+        // Perspective factor: 1 at bottom, smaller at top
+        const perspective = 1 - (lz * 0.6); 
+        
+        // Lane width at this Z depth
+        const lanePixelWidth = width * 0.8 * perspective; 
+        
+        // Center X of screen
+        const cx = width / 2;
+        
+        // Screen X
+        // lx is -50 to 50. Normalize to -0.5 to 0.5, then multiply by lane width
+        const sx = cx + (lx / 100) * width * 1.5 * perspective; 
+        
+        // Screen Y
+        // Z goes 0 (bottom) to 1 (top).
+        // Map 0 -> height * 0.85 (start line)
+        // Map 1 -> height * 0.25 (end of lane)
+        const laneBottom = height * 0.85;
+        const laneTop = height * 0.25;
+        const sy = laneBottom - (lz * (laneBottom - laneTop));
+
+        return { x: sx, y: sy, scale: perspective };
+    }
+
+    // --- Drawing Functions ---
+    function drawLane() {
+        const topY = height * 0.25;
+        const bottomY = height * 0.85;
+        const centerX = width / 2;
+        
+        const topHalfWidth = (width * 0.8 * (1 - 0.6)) / 2; // based on perspective math logic
+        const bottomHalfWidth = (width * 0.8) / 1.5; // Visual adjustment
+
+        // Gradient Floor
+        const grad = ctx.createLinearGradient(0, topY, 0, bottomY);
+        grad.addColorStop(0, '#10002b');
+        grad.addColorStop(1, '#3c096c');
+        
+        // Main Lane Polygon
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        // Top Left (using logic coords for precision)
+        let pTL = getScreenCoords(-40, 1.05); // extend slightly beyond pins
+        let pTR = getScreenCoords(40, 1.05);
+        let pBR = getScreenCoords(40, 0);
+        let pBL = getScreenCoords(-40, 0);
+
+        ctx.moveTo(pTL.x, pTL.y);
+        ctx.lineTo(pTR.x, pTR.y);
+        ctx.lineTo(pBR.x, pBR.y);
+        ctx.lineTo(pBL.x, pBL.y);
+        ctx.fill();
+
+        // Neon Borders (Gutters)
+        ctx.strokeStyle = '#00f2ff';
+        ctx.lineWidth = 4;
+        ctx.shadowColor = '#00f2ff';
+        ctx.shadowBlur = 15;
+        
+        ctx.beginPath();
+        ctx.moveTo(pTL.x, pTL.y);
+        ctx.lineTo(pBL.x, pBL.y);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(pTR.x, pTR.y);
+        ctx.lineTo(pBR.x, pBR.y);
+        ctx.stroke();
+
+        // Lane Boards/Arrows decorations
+        ctx.shadowBlur = 0;
+        ctx.strokeStyle = 'rgba(0, 242, 255, 0.1)';
+        ctx.lineWidth = 2;
+        for(let i=-20; i<=20; i+=10) {
+           let p1 = getScreenCoords(i, 0);
+           let p2 = getScreenCoords(i, 1.0);
+           ctx.beginPath();
+           ctx.moveTo(p1.x, p1.y);
+           ctx.lineTo(p2.x, p2.y);
+           ctx.stroke();
+        }
+
+        ctx.shadowBlur = 0; // reset
+    }
+
+    function drawPins() {
+        // Sort pins by Z so back ones draw first (though simplistic here)
+        // Actually for this view, back pins (higher Z) should be drawn first (Painter's algo)
+        // Since we iterate, let's sort
+        const sortedPins = [...pins].sort((a, b) => b.z - a.z);
+
+        sortedPins.forEach(p => {
+            if (!p.active) return;
+            const pos = getScreenCoords(p.x, p.z);
+            const scale = pos.scale;
+            
+            // Pin Body
+            const pinW = 12 * scale;
+            const pinH = 35 * scale;
+
+            ctx.save();
+            ctx.translate(pos.x, pos.y);
+            // If knocked, rotate
+            if(p.knocked) {
+                ctx.rotate(p.rotation);
+                ctx.globalAlpha = 0.8; // Fade slightly
+            }
+            
+            // Draw Pin Shape (Simple white shape with red stripe)
+            ctx.fillStyle = '#fff';
+            ctx.shadowColor = 'rgba(0,0,0,0.5)';
+            ctx.shadowBlur = 5;
+            
+            ctx.beginPath();
+            ctx.ellipse(0, -pinH/2, pinW/2, pinH/2, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Red Stripe
+            ctx.fillStyle = '#ff0000';
+            ctx.beginPath();
+            ctx.rect(-pinW/2 + (2*scale), -pinH * 0.7, pinW - (4*scale), 5*scale);
+            ctx.fill();
+
+            ctx.restore();
+        });
+    }
+
+    function drawBall() {
+        const pos = getScreenCoords(ball.x, ball.z);
+        const scale = pos.scale;
+        
+        // Ball Radius scales with perspective
+        const r = 20 * scale; 
+
+        // Shadow
+        ctx.fillStyle = 'rgba(0,0,0,0.5)';
+        ctx.beginPath();
+        ctx.ellipse(pos.x, pos.y + r*0.2, r, r*0.3, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Ball Body
+        ctx.beginPath();
+        ctx.arc(pos.x, pos.y - r, r, 0, Math.PI * 2);
+        
+        // Gradient for 3D look
+        const grad = ctx.createRadialGradient(pos.x - r*0.3, pos.y - r - r*0.3, r*0.2, pos.x, pos.y - r, r);
+        grad.addColorStop(0, '#ff6b6b');
+        grad.addColorStop(1, '#a61e1e');
+        
+        ctx.fillStyle = grad;
+        ctx.shadowColor = '#d63031';
+        ctx.shadowBlur = 10;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+
+        // Holes (visual effect, rotate based on movement would be cool but keep simple)
+        ctx.fillStyle = '#333';
+        ctx.beginPath();
+        ctx.arc(pos.x + r*0.2, pos.y - r - r*0.1, r*0.15, 0, Math.PI*2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(pos.x + r*0.4, pos.y - r + r*0.1, r*0.15, 0, Math.PI*2);
+        ctx.fill();
+    }
+
+    function drawArrow() {
+        if (currentState !== STATE.AIMING) return;
+
+        const startPos = getScreenCoords(ball.x, ball.z);
+        // Calculate end point of arrow based on angle
+        // Angle 0 is straight up.
+        // Map angle (-0.5 to 0.5 rad) to logic X
+        const arrowLen = 150;
+        const angleOffset = aimAngle * 50; // visual multiplier
+        
+        const endX = startPos.x + Math.sin(aimAngle) * arrowLen;
+        const endY = startPos.y - Math.cos(aimAngle) * arrowLen * 0.5; // foreshortening
+
+        ctx.strokeStyle = 'rgba(0, 242, 255, 0.7)';
+        ctx.lineWidth = 10;
+        ctx.lineCap = 'round';
+        ctx.shadowColor = '#00f2ff';
+        ctx.shadowBlur = 10;
+
+        // Draw Arrow Line
+        ctx.beginPath();
+        ctx.moveTo(startPos.x, startPos.y - 40); // Start slightly above ball
+        ctx.lineTo(endX, endY);
+        ctx.stroke();
+
+        // Arrow Head
+        ctx.beginPath();
+        ctx.moveTo(endX, endY);
+        ctx.lineTo(endX - 10, endY + 15);
+        ctx.lineTo(endX + 10, endY + 15);
+        ctx.fillStyle = '#00f2ff';
+        ctx.fill();
+        
+        ctx.shadowBlur = 0;
+    }
+
+    // --- Update Logic ---
+    function update() {
+        if (currentState === STATE.AIMING) {
+            // Swing arrow
+            aimAngle += 0.03 * aimDirection;
+            if (aimAngle > 0.6) aimDirection = -1;
+            if (aimAngle < -0.6) aimDirection = 1;
+        } 
+        else if (currentState === STATE.POWERING) {
+            // Fill power bar
+            power += 2 * powerDirection;
+            if (power > 100) { power = 100; powerDirection = -1; }
+            if (power < 0) { power = 0; powerDirection = 1; }
+            powerBar.style.width = power + '%';
+        }
+        else if (currentState === STATE.ROLLING) {
+            // Move Ball
+            ball.x += ball.vx * 100; // x logic
+            ball.z += ball.vy;       // z logic
+
+            // Friction/Slowdown
+            ball.vx *= 0.995;
+            // ball.vy *= 0.998; // keep speed mostly for simplicity until hit
+
+            // Gutter Ball check
+            if (Math.abs(ball.x) > 42) {
+                // In gutter
+                ball.x = Math.sign(ball.x) * 45; // Stick to side
+                // Could add specific fail sound
+            }
+
+            // Check Collision with Pins
+            let hitAny = false;
+            pins.forEach(p => {
+                if (!p.knocked) {
+                    // Distance check in Logic coords
+                    // Map Z difference to approx same scale as X
+                    const dx = ball.x - p.x;
+                    const dz = (ball.z - p.z) * 100; // Roughly scale Z to X units
+                    const dist = Math.sqrt(dx*dx + dz*dz);
+                    
+                    if (dist < 8) { // Collision Radius
+                        p.knocked = true;
+                        p.active = true; // still drawn but tumbling
+                        
+                        // Physics impulse to pin
+                        p.vx = (Math.random() - 0.5) * 5 + ball.vx * 50;
+                        p.vy = -1 + Math.random(); // Fly back
+                        p.rotation = Math.random();
+                        
+                        hitAny = true;
+                        score += 10;
+                        pinsDownCount++;
+                    }
+                }
+            });
+
+            if (hitAny) playSound('hit');
+
+            // End of lane check
+            if (ball.z > 1.2 || (Math.abs(ball.vx) < 0.01 && Math.abs(ball.vy) < 0.001)) {
+                currentState = STATE.SETTLING;
+                updateScoreUI();
+                setTimeout(() => {
+                    currentState = STATE.RESETTING;
+                    gameText.innerText = "ضربه بزنید تا دوباره پرتاب کنید";
+                    gameText.style.display = 'block';
+                }, 1500);
+            }
+        }
+        else if (currentState === STATE.SETTLING) {
+            // Animate knocked pins flying slightly
+            pins.forEach(p => {
+                if (p.knocked) {
+                    p.x += p.vx;
+                    p.z += p.vy * 0.01;
+                    p.rotation += 0.2;
+                }
+            });
+        }
+    }
+
+    function updateScoreUI() {
+        pinsScoreEl.innerText = pinsDownCount;
+        totalScoreEl.innerText = score;
+    }
+
+    function animate() {
+        ctx.clearRect(0, 0, width, height);
+        
+        drawLane();
+        drawPins();
+        drawBall();
+        drawArrow();
+
+        if (currentState !== STATE.MENU) {
+            update();
+        }
+
+        requestAnimationFrame(animate);
+    }
+
+    // Initial setup
+    resize();
+    drawLane(); // Draw static background for menu
+    drawPins();
+    drawBall();
+
+</script>
+</body>
+</html>

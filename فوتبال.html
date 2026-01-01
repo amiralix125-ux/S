@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>بازی فوتبال کوچک | Tiny Soccer</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #2c3e50;
+            font-family: 'Tahoma', sans-serif;
+            overflow: hidden;
+            touch-action: none; /* جلوگیری از زوم و اسکرول */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        #game-container {
+            position: relative;
+            box-shadow: 0 0 50px rgba(0,0,0,0.5);
+            border-radius: 15px;
+            overflow: hidden;
+        }
+        canvas {
+            display: block;
+            background: #4CAF50; /* سبز چمنی */
+            cursor: none; /* مخفی کردن موس داخل بازی */
+        }
+        /* استایل منوها */
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+            text-align: center;
+            color: white;
+        }
+        h1 {
+            font-size: 40px;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 0 #000;
+            color: #f1c40f;
+        }
+        p { font-size: 18px; color: #ddd; margin-bottom: 30px; }
+        .btn {
+            background: #e67e22;
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 22px;
+            border-radius: 50px;
+            cursor: pointer;
+            font-family: 'Tahoma', sans-serif;
+            box-shadow: 0 5px 0 #d35400;
+            transition: transform 0.1s;
+        }
+        .btn:active {
+            transform: translateY(5px);
+            box-shadow: none;
+        }
+        .hidden { display: none !important; }
+        
+        /* تابلو امتیاز */
+        #scoreboard {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.5);
+            padding: 5px 20px;
+            border-radius: 20px;
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+            display: flex;
+            gap: 20px;
+            pointer-events: none;
+            z-index: 5;
+        }
+        .score-blue { color: #3498db; }
+        .score-red { color: #e74c3c; }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="scoreboard">
+        <span class="score-blue" id="scoreP">0</span>
+        <span>-</span>
+        <span class="score-red" id="scoreE">0</span>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- منوی شروع -->
+    <div id="startScreen" class="overlay">
+        <img src="https://cdn-icons-png.flaticon.com/512/53/53283.png" width="80" style="margin-bottom:10px; filter: invert(1);">
+        <h1>فوتبال کوچک</h1>
+        <p>با موس یا انگشت بازیکن آبی را حرکت دهید.<br>اولین نفری که ۳ گل بزند برنده است!</p>
+        <button class="btn" onclick="startGame()">بازی کن ▶</button>
+    </div>
+
+    <!-- منوی پایان بازی -->
+    <div id="gameOverScreen" class="overlay hidden">
+        <h1 id="winnerText">پایان بازی</h1>
+        <button class="btn" onclick="resetGame()">بازی دوباره ↺</button>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    // تنظیم سایز بازی
+    const GAME_WIDTH = 800;
+    const GAME_HEIGHT = 500;
+    
+    // تغییر سایز ریسپانسیو
+    function resize() {
+        let scale = Math.min(window.innerWidth / GAME_WIDTH, window.innerHeight / GAME_HEIGHT);
+        if (scale > 1) scale = 1; // بزرگتر از حد استاندارد نشود
+        
+        canvas.width = GAME_WIDTH;
+        canvas.height = GAME_HEIGHT;
+        
+        canvas.style.width = (GAME_WIDTH * scale) + 'px';
+        canvas.style.height = (GAME_HEIGHT * scale) + 'px';
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    // متغیرهای بازی
+    let gameState = 'MENU'; // MENU, PLAYING, GOAL, GAMEOVER
+    let scores = { player: 0, enemy: 0 };
+    const WIN_SCORE = 3;
+
+    // اشیاء بازی
+    const ball = { x: GAME_WIDTH/2, y: GAME_HEIGHT/2, r: 12, vx: 0, vy: 0, friction: 0.98, speed: 0 };
+    const player = { x: 100, y: GAME_HEIGHT/2, r: 25, color: '#3498db', speed: 5 };
+    const enemy = { x: GAME_WIDTH - 100, y: GAME_HEIGHT/2, r: 25, color: '#e74c3c', speed: 3.5 }; // کمی کندتر از بازیکن
+    
+    const goalHeight = 140;
+    const goalWidth = 40;
+
+    // ورودی موس/تاچ
+    let mouseX = 100;
+    let mouseY = GAME_HEIGHT/2;
+
+    function handleInput(x, y) {
+        // تبدیل مختصات صفحه به مختصات کانواس
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+
+        mouseX = (x - rect.left) * scaleX;
+        mouseY = (y - rect.top) * scaleY;
+    }
+
+    canvas.addEventListener('mousemove', e => handleInput(e.clientX, e.clientY));
+    canvas.addEventListener('touchmove', e => {
+        e.preventDefault();
+        handleInput(e.touches[0].clientX, e.touches[0].clientY);
+    }, {passive: false});
+
+    // شروع بازی
+    function startGame() {
+        document.getElementById('startScreen').classList.add('hidden');
+        document.getElementById('gameOverScreen').classList.add('hidden');
+        resetMatch();
+        gameState = 'PLAYING';
+        loop();
+    }
+
+    // ریست کامل
+    function resetMatch() {
+        scores.player = 0;
+        scores.enemy = 0;
+        updateScoreBoard();
+        resetPositions();
+    }
+
+    // ریست بعد از گل
+    function resetPositions() {
+        ball.x = GAME_WIDTH / 2;
+        ball.y = GAME_HEIGHT / 2;
+        ball.vx = 0;
+        ball.vy = 0;
+        
+        player.x = 150;
+        player.y = GAME_HEIGHT / 2;
+        
+        enemy.x = GAME_WIDTH - 150;
+        enemy.y = GAME_HEIGHT / 2;
+        
+        mouseX = player.x; // جلوگیری از پرش ناگهانی
+        mouseY = player.y;
+    }
+
+    function updateScoreBoard() {
+        document.getElementById('scoreP').innerText = scores.player;
+        document.getElementById('scoreE').innerText = scores.enemy;
+    }
+
+    // --- منطق فیزیک و برخورد ---
+    
+    function distance(c1, c2) {
+        return Math.sqrt((c1.x - c2.x)**2 + (c1.y - c2.y)**2);
+    }
+
+    function checkCollision(c1, c2) {
+        let dist = distance(c1, c2);
+        if (dist < c1.r + c2.r) {
+            // زاویه برخورد
+            let angle = Math.atan2(c1.y - c2.y, c1.x - c2.x);
+            let force = 8; // قدرت شوت
+
+            // پرتاب توپ
+            ball.vx = Math.cos(angle) * force;
+            ball.vy = Math.sin(angle) * force;
+
+            // صدای برخورد (اختیاری - ویژوال)
+            return true;
+        }
+        return false;
+    }
+
+    function update() {
+        if (gameState !== 'PLAYING') return;
+
+        // 1. حرکت بازیکن به سمت موس
+        let dx = mouseX - player.x;
+        let dy = mouseY - player.y;
+        let dist = Math.sqrt(dx*dx + dy*dy);
+        
+        if (dist > 5) {
+            player.x += (dx / dist) * player.speed;
+            player.y += (dy / dist) * player.speed;
+        }
+
+        // محدود کردن بازیکن در زمین
+        player.x = Math.max(player.r, Math.min(GAME_WIDTH - player.r, player.x));
+        player.y = Math.max(player.r, Math.min(GAME_HEIGHT - player.r, player.y));
+
+        // 2. هوش مصنوعی (Enemy AI)
+        // اگر توپ سمت خودی است، حمله کن
+        // اگر توپ سمت حریف است، دفاع کن
+        let targetX = ball.x;
+        let targetY = ball.y;
+
+        // منطق ساده دفاعی: بین توپ و دروازه خودی بمان
+        if (ball.x < GAME_WIDTH / 2) {
+            targetX = GAME_WIDTH - 100; // عقب بمان
+            targetY = Math.max(GAME_HEIGHT/2 - 100, Math.min(GAME_HEIGHT/2 + 100, ball.y)); // دنبال کردن Y توپ با محدودیت
+        }
+
+        let edx = targetX - enemy.x;
+        let edy = targetY - enemy.y;
+        let edist = Math.sqrt(edx*edx + edy*edy);
+
+        if (edist > 5) {
+            enemy.x += (edx / edist) * enemy.speed;
+            enemy.y += (edy / edist) * enemy.speed;
+        }
+        
+        // محدود کردن ربات
+        enemy.x = Math.max(enemy.r, Math.min(GAME_WIDTH - enemy.r, enemy.x));
+        enemy.y = Math.max(enemy.r, Math.min(GAME_HEIGHT - enemy.r, enemy.y));
+
+        // 3. فیزیک توپ
+        ball.x += ball.vx;
+        ball.y += ball.vy;
+        ball.vx *= ball.friction;
+        ball.vy *= ball.friction;
+
+        // برخورد توپ با بازیکنان
+        checkCollision(ball, player);
+        checkCollision(ball, enemy);
+
+        // برخورد توپ با دیوارها (بالا و پایین)
+        if (ball.y - ball.r < 0 || ball.y + ball.r > GAME_HEIGHT) {
+            ball.vy = -ball.vy;
+            ball.y = Math.max(ball.r, Math.min(GAME_HEIGHT - ball.r, ball.y));
+        }
+
+        // برخورد توپ با دیوارهای چپ و راست (به جز دروازه)
+        // دروازه چپ (بازیکن)
+        if (ball.x - ball.r < 0) {
+            if (ball.y > (GAME_HEIGHT - goalHeight)/2 && ball.y < (GAME_HEIGHT + goalHeight)/2) {
+                // گل برای حریف!
+                scores.enemy++;
+                goalScored('قرمز');
+            } else {
+                ball.vx = -ball.vx;
+                ball.x = ball.r;
+            }
+        }
+        // دروازه راست (حریف)
+        if (ball.x + ball.r > GAME_WIDTH) {
+            if (ball.y > (GAME_HEIGHT - goalHeight)/2 && ball.y < (GAME_HEIGHT + goalHeight)/2) {
+                // گل برای شما!
+                scores.player++;
+                goalScored('آبی');
+            } else {
+                ball.vx = -ball.vx;
+                ball.x = GAME_WIDTH - ball.r;
+            }
+        }
+    }
+
+    function goalScored(who) {
+        updateScoreBoard();
+        gameState = 'GOAL';
+        
+        // چک کردن برنده
+        if (scores.player >= WIN_SCORE) {
+            endGame('تبریک! شما برنده شدید 🏆');
+        } else if (scores.enemy >= WIN_SCORE) {
+            endGame('باختید! ربات برنده شد 🤖');
+        } else {
+            // ادامه بازی بعد از 2 ثانیه
+            setTimeout(() => {
+                resetPositions();
+                gameState = 'PLAYING';
+            }, 1500);
+        }
+    }
+
+    function endGame(msg) {
+        setTimeout(() => {
+            document.getElementById('winnerText').innerText = msg;
+            document.getElementById('gameOverScreen').classList.remove('hidden');
+            gameState = 'GAMEOVER';
+        }, 500);
+    }
+
+    function resetGame() {
+        document.getElementById('gameOverScreen').classList.add('hidden');
+        resetMatch();
+        gameState = 'PLAYING';
+    }
+
+    // --- رسم بازی ---
+    
+    function drawField() {
+        // چمن
+        ctx.fillStyle = '#4CAF50';
+        ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+        
+        // خط کشی زمین
+        ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+        ctx.lineWidth = 4;
+
+        // وسط زمین
+        ctx.beginPath();
+        ctx.moveTo(GAME_WIDTH/2, 0);
+        ctx.lineTo(GAME_WIDTH/2, GAME_HEIGHT);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(GAME_WIDTH/2, GAME_HEIGHT/2, 70, 0, Math.PI*2);
+        ctx.stroke();
+
+        // محوطه جریمه چپ
+        ctx.strokeRect(0, (GAME_HEIGHT - 250)/2, 120, 250);
+        // محوطه جریمه راست
+        ctx.strokeRect(GAME_WIDTH - 120, (GAME_HEIGHT - 250)/2, 120, 250);
+
+        // دروازه ها (تو رفته)
+        ctx.fillStyle = 'rgba(0,0,0,0.2)';
+        ctx.fillRect(0, (GAME_HEIGHT - goalHeight)/2, 10, goalHeight); // چپ
+        ctx.fillRect(GAME_WIDTH - 10, (GAME_HEIGHT - goalHeight)/2, 10, goalHeight); // راست
+    }
+
+    function drawCircle(obj, stroke) {
+        ctx.beginPath();
+        ctx.arc(obj.x, obj.y, obj.r, 0, Math.PI*2);
+        ctx.fillStyle = obj.color;
+        ctx.fill();
+        ctx.strokeStyle = stroke || 'rgba(0,0,0,0.3)';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+    }
+
+    function drawBall() {
+        ctx.save();
+        ctx.translate(ball.x, ball.y);
+        // شبیه‌سازی چرخش توپ (ساده)
+        // ctx.rotate(Date.now() / 100); 
+        
+        ctx.beginPath();
+        ctx.arc(0, 0, ball.r, 0, Math.PI*2);
+        ctx.fillStyle = 'white';
+        ctx.fill();
+        ctx.strokeStyle = 'black';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // طرح روی توپ
+        ctx.beginPath();
+        ctx.arc(0, 0, ball.r/2, 0, Math.PI*2);
+        ctx.fillStyle = 'black';
+        ctx.fill();
+        
+        ctx.restore();
+    }
+
+    function drawGoalMessage() {
+        if (gameState === 'GOAL') {
+            ctx.fillStyle = 'rgba(0,0,0,0.5)';
+            ctx.fillRect(0, GAME_HEIGHT/2 - 60, GAME_WIDTH, 120);
+            
+            ctx.fillStyle = '#f1c40f';
+            ctx.font = 'bold 80px Tahoma';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('GOAL!!!', GAME_WIDTH/2, GAME_HEIGHT/2);
+        }
+    }
+
+    function loop() {
+        ctx.clearRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+        
+        drawField();
+        
+        // رسم اشیا
+        drawCircle(player, '#154360'); // بازیکن آبی
+        drawCircle(enemy, '#78281f');  // ربات قرمز
+        drawBall();
+
+        drawGoalMessage();
+
+        update();
+        
+        if (gameState !== 'GAMEOVER') {
+            requestAnimationFrame(loop);
+        }
+    }
+    
+    // رندر اولیه برای دیده شدن زمین قبل از زدن دکمه
+    drawField();
+    drawCircle(player, '#154360');
+    drawCircle(enemy, '#78281f');
+    drawBall();
+
+</script>
+</body>
+</html>

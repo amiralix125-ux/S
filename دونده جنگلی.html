@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>بازی دونده جنگلی | نسخه سرعتی</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden; /* حذف اسکرول */
+            background-color: #2c3e50;
+            font-family: 'Tahoma', sans-serif;
+            user-select: none;
+            touch-action: none; /* جلوگیری از رفتارهای پیش‌فرض لمسی */
+        }
+
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+            background: linear-gradient(to bottom, #4FC1E9, #F5F7FA);
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        #scoreBoard {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            font-size: 35px;
+            font-weight: 900;
+            color: #fff;
+            text-shadow: 2px 2px 0px #333;
+            direction: ltr;
+            font-family: sans-serif;
+        }
+
+        #gameOverScreen {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 255, 255, 0.95);
+            padding: 40px 80px;
+            border-radius: 20px;
+            text-align: center;
+            display: none;
+            pointer-events: auto;
+            border: 6px solid #e74c3c;
+            box-shadow: 0 15px 50px rgba(0,0,0,0.6);
+            z-index: 10;
+        }
+
+        h1 { margin: 0 0 15px 0; color: #c0392b; font-size: 45px;}
+        p { font-size: 26px; color: #333; margin-bottom: 25px; font-weight: bold;}
+        
+        button {
+            background: #27ae60;
+            color: white;
+            border: none;
+            padding: 15px 50px;
+            font-size: 26px;
+            border-radius: 50px;
+            cursor: pointer;
+            font-family: 'Tahoma', sans-serif;
+            font-weight: bold;
+            box-shadow: 0 5px 15px rgba(39, 174, 96, 0.4);
+            transition: all 0.2s;
+        }
+        button:hover { background: #2ecc71; transform: scale(1.05); box-shadow: 0 8px 20px rgba(46, 204, 113, 0.5); }
+        button:active { transform: scale(0.95); }
+
+        .controls-hint {
+            position: absolute;
+            bottom: 30px;
+            width: 100%;
+            text-align: center;
+            color: rgba(0,0,0,0.6);
+            font-size: 20px;
+            font-weight: bold;
+            text-shadow: 1px 1px 0 #fff;
+        }
+    </style>
+</head>
+<body>
+
+<canvas id="gameCanvas"></canvas>
+
+<div id="ui-layer">
+    <div id="scoreBoard">SCORE: <span id="scoreVal">0</span></div>
+    <div class="controls-hint">برای پرش یا دبل‌جامپ دکمه Space یا کلیک موس را بزنید</div>
+</div>
+
+<div id="gameOverScreen">
+    <h1>باختی!</h1>
+    <p>امتیاز نهایی: <span id="finalScore">0</span></p>
+    <button onclick="resetGame()">شروع مجدد</button>
+</div>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const scoreEl = document.getElementById('scoreVal');
+    const finalScoreEl = document.getElementById('finalScore');
+    const gameOverScreen = document.getElementById('gameOverScreen');
+
+    // تنظیم سایز کانواس
+    function resizeCanvas() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    }
+    
+    window.addEventListener('resize', () => {
+        resizeCanvas();
+        // اصلاح موقعیت بازیکن هنگام تغییر سایز
+        if(player) player.y = canvas.height - groundHeight - player.height;
+    });
+    resizeCanvas();
+
+    // ================= تنظیمات سرعت و فیزیک =================
+    let gameSpeed = 10; // سرعت اولیه بالا (قبلاً 6 بود)
+    const gravity = 0.85; // جاذبه بیشتر برای فرود سریع‌تر (قبلاً 0.7)
+    const jumpPowerBase = -19; // قدرت پرش بیشتر (قبلاً -17)
+    // ========================================================
+
+    let score = 0;
+    let frame = 0;
+    let isGameOver = false;
+    let animationId;
+    
+    const groundHeight = 100;
+
+    class Player {
+        constructor() {
+            this.width = 60; 
+            this.height = 80;
+            this.x = 100;
+            this.y = canvas.height - groundHeight - this.height;
+            this.dy = 0; 
+            this.jumpPower = jumpPowerBase;
+            this.grounded = true;
+            
+            this.jumpCount = 0; 
+            this.maxJumps = 2; 
+            this.runCycle = 0;
+        }
+
+        jump() {
+            if (this.jumpCount < this.maxJumps) {
+                this.dy = this.jumpPower;
+                this.grounded = false;
+                this.jumpCount++;
+                // صدای پرش (اختیاری: فقط یک افکت لاجیک ساده)
+                this.runCycle = 0;
+            }
+        }
+
+        update() {
+            // اعمال جاذبه
+            this.dy += gravity;
+            this.y += this.dy;
+
+            // برخورد با زمین
+            let currentGroundY = canvas.height - groundHeight;
+
+            if (this.y + this.height > currentGroundY) {
+                this.y = currentGroundY - this.height;
+                this.dy = 0;
+                this.grounded = true;
+                this.jumpCount = 0; 
+            } else {
+                this.grounded = false;
+            }
+
+            this.draw();
+        }
+
+        draw() {
+            // انیمیشن ساده دویدن (بالا پایین شدن)
+            let bounce = 0;
+            if (this.grounded) {
+                // دویدن سریع‌تر چون سرعت بازی بیشتر است
+                this.runCycle += 0.4; 
+                bounce = Math.sin(this.runCycle) * 4;
+            } else {
+                // حالت پرش
+                bounce = -5;
+            }
+
+            // رنگ قرمز برای پرش دوم (دبل جامپ)
+            let bodyColor = (this.jumpCount === 2) ? '#e74c3c' : '#e67e22';
+
+            // بدن
+            ctx.fillStyle = bodyColor;
+            ctx.fillRect(this.x, this.y + bounce, this.width, this.height - bounce);
+            
+            // شلوار
+            ctx.fillStyle = '#2980b9'; 
+            const pantHeight = this.height * 0.35;
+            ctx.fillRect(this.x, this.y + (this.height - pantHeight) + bounce, this.width, pantHeight - bounce);
+
+            // سر
+            ctx.fillStyle = '#ffeaa7'; 
+            const headSize = 22;
+            ctx.beginPath();
+            ctx.arc(this.x + this.width/2, this.y - 12 + bounce, headSize, 0, Math.PI * 2);
+            ctx.fill();
+
+            // مو
+            ctx.fillStyle = '#4a2c2a'; 
+            ctx.beginPath();
+            ctx.arc(this.x + this.width/2, this.y - 15 + bounce, headSize + 3, Math.PI, 0); 
+            ctx.fill();
+
+            // چشم بند یا عینک (برای استایل دونده)
+            ctx.fillStyle = '#333';
+            ctx.fillRect(this.x + this.width/2, this.y - 18 + bounce, 15, 6);
+
+            // کوله پشتی
+            ctx.fillStyle = '#8e44ad'; 
+            ctx.fillRect(this.x - 15, this.y + 10 + bounce, 15, 45);
+        }
+    }
+
+    class Obstacle {
+        constructor() {
+            this.width = 60 + Math.random() * 40; 
+            this.height = 60 + Math.random() * 60; 
+            this.x = canvas.width;
+            this.y = canvas.height - groundHeight - this.height;
+            this.markedForDeletion = false;
+            this.type = Math.random() > 0.5 ? 'box' : 'rock'; // تنوع موانع
+        }
+
+        update() {
+            this.x -= gameSpeed;
+            if (this.x + this.width < 0) this.markedForDeletion = true;
+            this.draw();
+        }
+
+        draw() {
+            if (this.type === 'box') {
+                ctx.fillStyle = '#795548';
+                ctx.fillRect(this.x, this.y, this.width, this.height);
+                // طرح جعبه
+                ctx.strokeStyle = '#3e2723';
+                ctx.lineWidth = 3;
+                ctx.strokeRect(this.x, this.y, this.width, this.height);
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y); ctx.lineTo(this.x + this.width, this.y + this.height);
+                ctx.moveTo(this.x + this.width, this.y); ctx.lineTo(this.x, this.y + this.height);
+                ctx.stroke();
+            } else {
+                // سنگ (بیضی شکل)
+                ctx.fillStyle = '#95a5a6';
+                ctx.beginPath();
+                ctx.ellipse(this.x + this.width/2, this.y + this.height/2, this.width/2, this.height/2, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#7f8c8d';
+                ctx.stroke();
+            }
+        }
+    }
+
+    class BackgroundObj {
+        constructor(type) {
+            this.type = type; 
+            this.x = canvas.width;
+            
+            // ابرها خیلی کندتر، درخت ها متوسط
+            this.speed = (type === 'cloud') ? gameSpeed * 0.15 : gameSpeed * 0.5;
+            
+            if (type === 'cloud') {
+                this.y = Math.random() * (canvas.height * 0.4);
+                this.size = 50 + Math.random() * 60;
+            } else {
+                this.size = 100 + Math.random() * 100; 
+                this.y = canvas.height - groundHeight - this.size + 20; // کمی پایین تر برود که طبیعی تر باشد
+            }
+            this.markedForDeletion = false;
+        }
+
+        update() {
+            this.x -= this.speed;
+            if (this.x + 300 < 0) this.markedForDeletion = true;
+            this.draw();
+        }
+
+        draw() {
+            if (this.type === 'cloud') {
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.arc(this.x + this.size*0.7, this.y - this.size*0.2, this.size*0.8, 0, Math.PI * 2);
+                ctx.arc(this.x - this.size*0.7, this.y - this.size*0.2, this.size*0.8, 0, Math.PI * 2);
+                ctx.fill();
+            } else { // درخت
+                // تنه
+                ctx.fillStyle = '#5D4037'; 
+                const trunkWidth = this.size * 0.25;
+                ctx.fillRect(this.x + (this.size - trunkWidth)/2, this.y + this.size/2, trunkWidth, this.size/2);
+                
+                // برگ‌ها (ساده شده)
+                ctx.fillStyle = '#2ecc71'; 
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y + this.size/2);
+                ctx.lineTo(this.x + this.size/2, this.y - this.size * 0.3);
+                ctx.lineTo(this.x + this.size, this.y + this.size/2);
+                ctx.fill();
+            }
+        }
+    }
+
+    let player = new Player();
+    let obstacles = [];
+    let bgObjects = [];
+    let spawnTimer = 0;
+
+    function spawnObstacle() {
+        spawnTimer++;
+        
+        // فاصله بین موانع را با توجه به سرعت تنظیم میکنیم
+        // هر چه سرعت بیشتر، فاصله زمانی باید کمتر شود تا فاصله مکانی حفظ شود
+        // اما برای سخت تر شدن، فاصله را کمی تصادفی و تنگ میکنیم
+        
+        // فرمول داینامیک:
+        let dynamicGap = 1200 / gameSpeed; // مثلا اگر سرعت 10 باشد، گپ 120 فریم است
+        let randomness = Math.random() * 40;
+        
+        if (spawnTimer > dynamicGap - randomness) {
+            obstacles.push(new Obstacle());
+            spawnTimer = 0;
+            
+            // شانس کم برای دوتایی آمدن موانع در سرعت بالا
+            if (gameSpeed > 12 && Math.random() > 0.7) {
+                setTimeout(() => {
+                    obstacles.push(new Obstacle());
+                }, 500); // 500 میلی ثانیه بعد دومی بیاید
+            }
+        }
+    }
+
+    function spawnBgObjects() {
+        if (frame % 60 === 0) bgObjects.push(new BackgroundObj('tree'));
+        if (frame % 100 === 0) bgObjects.push(new BackgroundObj('cloud'));
+    }
+
+    function checkCollision(player, obstacle) {
+        // هیت باکس دقیق‌تر و کمی کوچک‌تر از سایز واقعی برای انصاف بیشتر
+        const hitX = player.x + 15;
+        const hitY = player.y + 15;
+        const hitW = player.width - 30;
+        const hitH = player.height - 20;
+
+        return (
+            hitX < obstacle.x + obstacle.width &&
+            hitX + hitW > obstacle.x &&
+            hitY < obstacle.y + obstacle.height &&
+            hitY + hitH > obstacle.y
+        );
+    }
+
+    function drawGround() {
+        const y = canvas.height - groundHeight;
+        // چمن
+        ctx.fillStyle = '#27ae60'; 
+        ctx.fillRect(0, y, canvas.width, groundHeight);
+        
+        // نوار بالایی چمن
+        ctx.fillStyle = '#2ecc71'; 
+        ctx.fillRect(0, y, canvas.width, 20);
+        
+        // خطوط سرعت روی زمین برای حس سرعت
+        ctx.fillStyle = 'rgba(255,255,255,0.2)';
+        for(let i=0; i<canvas.width; i+=200) {
+            let offset = (frame * gameSpeed) % 200;
+            ctx.fillRect(i - offset + 200, y + 5, 60, 5);
+        }
+    }
+
+    function animate() {
+        if (isGameOver) return;
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        frame++;
+        
+        // افزایش تدریجی سرعت بازی
+        if (frame % 300 === 0) {
+            gameSpeed += 0.2;
+            // سقف سرعت
+            if(gameSpeed > 25) gameSpeed = 25;
+        }
+        
+        score++;
+        scoreEl.innerText = Math.floor(score / 5); // امتیازدهی سریعتر
+
+        spawnBgObjects();
+        bgObjects.forEach(obj => obj.update());
+        bgObjects = bgObjects.filter(obj => !obj.markedForDeletion);
+
+        drawGround();
+
+        player.update();
+
+        spawnObstacle();
+        obstacles.forEach(obs => {
+            obs.update();
+            if (checkCollision(player, obs)) {
+                gameOver();
+            }
+        });
+        obstacles = obstacles.filter(obs => !obs.markedForDeletion);
+
+        animationId = requestAnimationFrame(animate);
+    }
+
+    function gameOver() {
+        isGameOver = true;
+        gameOverScreen.style.display = 'block';
+        finalScoreEl.innerText = Math.floor(score / 5);
+    }
+
+    function resetGame() {
+        isGameOver = false;
+        gameOverScreen.style.display = 'none';
+        
+        resizeCanvas();
+        player = new Player();
+        obstacles = [];
+        bgObjects = [];
+        score = 0;
+        frame = 0;
+        spawnTimer = 0;
+        gameSpeed = 10; // ریست سرعت به حالت اولیه (اما سریع)
+        animate();
+    }
+
+    // کنترلر کیبورد
+    window.addEventListener('keydown', e => {
+        if (e.code === 'Space' || e.code === 'ArrowUp') {
+            if (isGameOver) resetGame();
+            else player.jump();
+            e.preventDefault(); 
+        }
+    });
+
+    // کنترلر تاچ و موس
+    const handleInput = (e) => {
+        if(e.target.tagName === 'BUTTON') return;
+        
+        // جلوگیری از رفتار پیش فرض فقط اگر روی دکمه نیست
+        if(e.type === 'touchstart') e.preventDefault();
+        
+        if (isGameOver) resetGame();
+        else player.jump();
+    };
+
+    window.addEventListener('touchstart', handleInput, {passive: false});
+    window.addEventListener('mousedown', handleInput);
+
+    animate();
+
+</script>
+
+</body>
+</html>

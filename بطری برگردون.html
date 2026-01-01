@@ -1,0 +1,627 @@
+<!-- BOTTLE FLIP GAME - Version 1.0 -->
+<!-- Created for User based on request -->
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>چالش بطری | Bottle Flip</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;700;900&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Vazirmatn', Tahoma, sans-serif;
+            touch-action: none; /* جلوگیری از زوم و اسکرول در موبایل */
+        }
+
+        body {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            color: white;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            max-width: 600px; /* شبیه سایز موبایل در دسکتاپ */
+            background: rgba(0, 0, 0, 0.2);
+            box-shadow: 0 0 50px rgba(0,0,0,0.5);
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* رابط کاربری روی بازی */
+        .ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+        }
+
+        .score-board {
+            text-align: center;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        }
+
+        .score {
+            font-size: 4rem;
+            font-weight: 900;
+            color: #fff;
+        }
+
+        .best-score {
+            font-size: 1.2rem;
+            color: #ffd700;
+            background: rgba(0,0,0,0.3);
+            padding: 5px 15px;
+            border-radius: 20px;
+            display: inline-block;
+        }
+
+        /* منوی شروع و باخت */
+        .menu-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(5px);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            pointer-events: auto;
+            transition: opacity 0.3s;
+            z-index: 10;
+        }
+
+        .menu-screen.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        h1 {
+            font-size: 3rem;
+            color: #fff;
+            text-shadow: 0 0 20px #00d2ff;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        p.subtitle {
+            font-size: 1.2rem;
+            color: #ccc;
+            margin-bottom: 30px;
+        }
+
+        .btn-play {
+            background: linear-gradient(90deg, #ff8c00, #ff0080);
+            color: white;
+            border: none;
+            padding: 15px 50px;
+            font-size: 1.5rem;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 10px 20px rgba(255, 0, 128, 0.4);
+            transition: transform 0.2s, box-shadow 0.2s;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .btn-play:active {
+            transform: scale(0.95);
+            box-shadow: 0 5px 10px rgba(255, 0, 128, 0.4);
+        }
+
+        .guide {
+            margin-top: 30px;
+            font-size: 0.9rem;
+            color: rgba(255,255,255,0.6);
+            background: rgba(255,255,255,0.1);
+            padding: 10px 20px;
+            border-radius: 10px;
+        }
+
+        /* نشانگر قدرت پرتاب */
+        #power-indicator {
+            position: absolute;
+            height: 10px;
+            background: linear-gradient(90deg, #00ff87, #60efff);
+            bottom: 0;
+            left: 0;
+            transition: width 0.1s;
+            opacity: 0;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+        <div id="power-indicator"></div>
+
+        <div class="ui-layer">
+            <div class="score-board">
+                <div class="score" id="scoreDisplay">0</div>
+                <div class="best-score">رکورد: <span id="bestScoreDisplay">0</span></div>
+            </div>
+        </div>
+
+        <!-- منوی اصلی / شروع -->
+        <div id="startScreen" class="menu-screen">
+            <h1>چالش بطری</h1>
+            <p class="subtitle">Bottle Flip Challenge</p>
+            <button class="btn-play" onclick="startGame()">
+                <span>شروع بازی</span>
+                <span style="font-size: 1.2em;">▶</span>
+            </button>
+            <div class="guide">
+                انگشت/موس را بکشید و رها کنید تا بطری بپرد!
+            </div>
+        </div>
+
+        <!-- منوی باخت -->
+        <div id="gameOverScreen" class="menu-screen hidden">
+            <h1 style="color: #ff4757; text-shadow: 0 0 20px #ff4757;">باختی!</h1>
+            <p class="subtitle" id="finalScoreMsg">امتیاز شما: 0</p>
+            <button class="btn-play" onclick="resetGame()">
+                <span>دوباره</span>
+                <span style="font-size: 1.2em;">↺</span>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // --- تنظیمات بازی و متغیرها ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const GRAVITY = 0.5;
+        const FRICTION = 0.99; // مقاومت هوا
+        
+        // حالت بازی
+        let gameState = 'MENU'; // MENU, PLAYING, GAMEOVER
+        let score = 0;
+        let bestScore = localStorage.getItem('bottle_best_score') || 0;
+        document.getElementById('bestScoreDisplay').innerText = bestScore;
+
+        let cameraOffset = 0;
+        let targetCameraOffset = 0;
+
+        // ورودی‌ها
+        let isDragging = false;
+        let dragStartX = 0;
+        let dragStartY = 0;
+        let dragCurrentX = 0;
+        let dragCurrentY = 0;
+
+        // --- اشیاء بازی ---
+        
+        // بطری
+        const bottle = {
+            x: 0, y: 0,
+            width: 30, height: 70,
+            vx: 0, vy: 0,
+            angle: 0,
+            vAngle: 0, // سرعت چرخش
+            onGround: true,
+            landed: true,
+            color: 'rgba(255, 255, 255, 0.3)',
+            capColor: '#ff4757',
+            waterColor: 'rgba(0, 190, 255, 0.6)',
+            reset: function(startX, startY) {
+                this.x = startX;
+                this.y = startY;
+                this.vx = 0;
+                this.vy = 0;
+                this.angle = 0;
+                this.vAngle = 0;
+                this.onGround = true;
+                this.landed = true;
+            }
+        };
+
+        // سکوها (میزها)
+        let platforms = [];
+
+        // --- سیستم صوتی (Web Audio API) ---
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        function playSound(type) {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            const now = audioCtx.currentTime;
+
+            if (type === 'jump') {
+                // صدای پرش (Whoosh)
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(150, now);
+                osc.frequency.linearRampToValueAtTime(600, now + 0.1);
+                gain.gain.setValueAtTime(0.3, now);
+                gain.gain.linearRampToValueAtTime(0, now + 0.1);
+                osc.start(now);
+                osc.stop(now + 0.1);
+            } else if (type === 'land') {
+                // صدای فرود موفق (Pop/Ding)
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(800, now);
+                osc.frequency.exponentialRampToValueAtTime(100, now + 0.1);
+                gain.gain.setValueAtTime(0.5, now);
+                gain.gain.linearRampToValueAtTime(0, now + 0.15);
+                osc.start(now);
+                osc.stop(now + 0.15);
+            } else if (type === 'crash') {
+                // صدای باخت (Crash)
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(100, now);
+                osc.frequency.linearRampToValueAtTime(20, now + 0.3);
+                gain.gain.setValueAtTime(0.5, now);
+                gain.gain.linearRampToValueAtTime(0, now + 0.3);
+                osc.start(now);
+                osc.stop(now + 0.3);
+            }
+        }
+
+        // --- منطق بازی ---
+
+        function init() {
+            resize();
+            window.addEventListener('resize', resize);
+            
+            // رویدادهای موس
+            canvas.addEventListener('mousedown', startDrag);
+            window.addEventListener('mousemove', updateDrag);
+            window.addEventListener('mouseup', endDrag);
+            
+            // رویدادهای لمسی (موبایل)
+            canvas.addEventListener('touchstart', (e) => startDrag(e.touches[0]));
+            window.addEventListener('touchmove', (e) => updateDrag(e.touches[0]));
+            window.addEventListener('touchend', endDrag);
+
+            requestAnimationFrame(loop);
+        }
+
+        function resize() {
+            canvas.width = canvas.parentElement.offsetWidth;
+            canvas.height = canvas.parentElement.offsetHeight;
+            if(gameState === 'MENU') {
+               // ریست پوزیشن برای نمایش درست در منو
+               // (در استارت گیم ست می‌شود)
+            }
+        }
+
+        function startGame() {
+            document.getElementById('startScreen').classList.add('hidden');
+            document.getElementById('gameOverScreen').classList.add('hidden');
+            score = 0;
+            updateScoreUI();
+            
+            platforms = [];
+            // سکوی شروع
+            platforms.push({x: 50, y: canvas.height - 150, w: 100, h: 150});
+            // سکوی دوم
+            addNextPlatform();
+
+            bottle.reset(platforms[0].x + platforms[0].w/2, platforms[0].y - bottle.height);
+            
+            cameraOffset = 0;
+            targetCameraOffset = 0;
+            gameState = 'PLAYING';
+        }
+
+        function resetGame() {
+            startGame();
+        }
+
+        function addNextPlatform() {
+            const lastPlat = platforms[platforms.length - 1];
+            // فاصله تصادفی اما قابل دسترس
+            const dist = 150 + Math.random() * 150; 
+            const w = 80 + Math.random() * 60; // عرض متغیر
+            // ارتفاع متغیر (کمی بالا پایین)
+            // const h = 150 + (Math.random() * 100 - 50); 
+            // برای سادگی فعلا ارتفاع ثابت
+            
+            platforms.push({
+                x: lastPlat.x + lastPlat.w + dist,
+                y: canvas.height - 150,
+                w: w,
+                h: 150
+            });
+        }
+
+        // --- ورودی ---
+        function startDrag(e) {
+            if (gameState !== 'PLAYING' || !bottle.onGround) return;
+            isDragging = true;
+            dragStartX = e.clientX;
+            dragStartY = e.clientY;
+            dragCurrentX = e.clientX;
+            dragCurrentY = e.clientY;
+        }
+
+        function updateDrag(e) {
+            if (!isDragging) return;
+            dragCurrentX = e.clientX;
+            dragCurrentY = e.clientY;
+        }
+
+        function endDrag() {
+            if (!isDragging) return;
+            isDragging = false;
+            
+            const dx = dragStartX - dragCurrentX;
+            const dy = dragStartY - dragCurrentY; // مثبت یعنی کشیدن به پایین (پرتاب به بالا)
+            
+            // حداقل قدرت برای جلوگیری از کلیک‌های تصادفی
+            if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
+
+            // محاسبه نیرو
+            // محدود کردن حداکثر نیرو
+            let powerX = Math.min(Math.max(dx * 0.15, -15), 15); 
+            let powerY = Math.min(Math.max(dy * 0.25, -25), 25); 
+
+            // اگر به سمت پایین کشیده شده، پرتاب کن
+            // (مدل کششی: پایین بکش، بالا برو)
+            if (dy > 0) {
+                bottle.vx = powerX; 
+                bottle.vy = -powerY; 
+                
+                // چرخش بر اساس سرعت افقی و عمودی
+                // فرمول تجربی برای چرخش "خوب"
+                const spinDir = powerX > 0 ? 1 : -1;
+                bottle.vAngle = (Math.abs(powerX) * 0.5 + Math.abs(powerY) * 0.5) * 0.8 * spinDir;
+                
+                // اگر مستقیم بالا پرتاب شد، کمی چرخش بده
+                if(Math.abs(bottle.vAngle) < 2) bottle.vAngle = 10;
+
+                bottle.onGround = false;
+                bottle.landed = false;
+                playSound('jump');
+            }
+        }
+
+        // --- حلقه اصلی بازی ---
+        function loop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // مدیریت دوربین
+            // دوربین مرکز بطری را دنبال می‌کند اگر جلو برود
+            if (bottle.x - cameraOffset > canvas.width * 0.4) {
+                targetCameraOffset = bottle.x - canvas.width * 0.4;
+            }
+            // نرم کردن حرکت دوربین
+            cameraOffset += (targetCameraOffset - cameraOffset) * 0.1;
+
+            ctx.save();
+            ctx.translate(-cameraOffset, 0);
+
+            if (gameState === 'PLAYING') {
+                updatePhysics();
+            }
+
+            drawPlatforms();
+            drawBottle();
+            
+            // رسم خط راهنما هنگام کشیدن
+            if (isDragging && bottle.onGround) {
+                drawTrajectory();
+            }
+
+            ctx.restore();
+            requestAnimationFrame(loop);
+        }
+
+        function updatePhysics() {
+            if (!bottle.onGround) {
+                bottle.vy += GRAVITY;
+                bottle.vx *= FRICTION;
+                bottle.x += bottle.vx;
+                bottle.y += bottle.vy;
+                bottle.angle += bottle.vAngle;
+
+                // برخورد با کف زمین (باخت)
+                if (bottle.y > canvas.height + 100) {
+                    gameOver();
+                }
+
+                // برخورد با سکوها
+                platforms.forEach((p, index) => {
+                    // چک کردن اینکه آیا بطری بالای سکو است و دارد پایین می‌آید
+                    if (bottle.vy > 0 && 
+                        bottle.y + bottle.height/2 >= p.y && 
+                        bottle.y + bottle.height/2 <= p.y + 20 && // تلورانس نفوذ
+                        bottle.x >= p.x && 
+                        bottle.x <= p.x + p.w) 
+                    {
+                        checkLanding(p, index);
+                    }
+                });
+            }
+        }
+
+        function checkLanding(platform, index) {
+            // نرمال کردن زاویه بین -180 و 180
+            let normAngle = bottle.angle % 360;
+            if (normAngle > 180) normAngle -= 360;
+            if (normAngle < -180) normAngle += 360;
+
+            // شرط ایستادن: زاویه نزدیک به 0 (مثلا +/- 20 درجه)
+            const isUpright = Math.abs(normAngle) < 25;
+
+            if (isUpright) {
+                // موفقیت! ایستادن روی سکو
+                bottle.y = platform.y - bottle.height/2; // قرارگیری روی سطح (نقطه مرکز بطری در draw تنظیم شده)
+                bottle.vy = 0;
+                bottle.vx = 0;
+                bottle.vAngle = 0;
+                bottle.angle = 0; // صاف شدن کامل
+                bottle.onGround = true;
+                
+                // امتیاز فقط اگر روی سکوی جدید باشد
+                // فرض می‌کنیم همیشه باید برود جلو. 
+                // برای سادگی، اگر روی هر سکویی غیر از قبلی فرود آمد امتیاز بده
+                // اما اینجا ساده‌تر: بررسی مختصات سکو
+                
+                // تشخیص اینکه آیا سکوی جدید است
+                // (می‌توانیم یک ایندکس ذخیره کنیم)
+                if (!platform.visited) {
+                    score++;
+                    updateScoreUI();
+                    platform.visited = true;
+                    playSound('land');
+                    addNextPlatform();
+                    
+                    // حذف سکوهای خیلی قدیمی برای حافظه
+                    if(platforms.length > 5) platforms.shift();
+                } else {
+                    playSound('land'); // صدای فرود عادی
+                }
+
+            } else {
+                // باخت! برخورد با زاویه بد
+                // بطری می‌افتد (بونس کوچک و چرخش)
+                bottle.vy = -5;
+                bottle.vAngle = (Math.random() > 0.5 ? 10 : -10);
+                // سکو را رد می‌کند تا بیفتد پایین
+                // اما چون چک در loop هست، دفعه بعد چون y > p.y است شرط اجرا نمی‌شود و می‌افتد
+                // پس فقط صدا پخش کن
+                playSound('crash');
+            }
+        }
+
+        function gameOver() {
+            gameState = 'GAMEOVER';
+            playSound('crash');
+            if(score > bestScore) {
+                bestScore = score;
+                localStorage.setItem('bottle_best_score', bestScore);
+                document.getElementById('bestScoreDisplay').innerText = bestScore;
+            }
+            document.getElementById('finalScoreMsg').innerText = `امتیاز شما: ${score}`;
+            document.getElementById('gameOverScreen').classList.remove('hidden');
+        }
+
+        function updateScoreUI() {
+            document.getElementById('scoreDisplay').innerText = score;
+        }
+
+        // --- ترسیم ---
+
+        function drawPlatforms() {
+            ctx.fillStyle = '#f1c40f'; // رنگ روی میز
+            platforms.forEach(p => {
+                // بدنه میز
+                ctx.fillStyle = '#34495e';
+                ctx.fillRect(p.x, p.y, p.w, p.h);
+                // سطح رویی
+                ctx.fillStyle = '#ecf0f1';
+                ctx.fillRect(p.x - 5, p.y, p.w + 10, 10);
+            });
+        }
+
+        function drawBottle() {
+            ctx.save();
+            // انتقال به مرکز بطری
+            // مختصات bottle.x, bottle.y مرکز پایین بطری در نظر گرفته شده بود در منطق؟
+            // در لاجیک فیزیک: x مرکز، y مرکز عمودی فرض شد.
+            // بیایید اصلاح کنیم: bottle.x,y مرکز ثقل
+            
+            // اصلاح لاجیک رندر: بطری را حول مرکز خودش می‌چرخانیم
+            ctx.translate(bottle.x, bottle.y);
+            ctx.rotate(bottle.angle * Math.PI / 180);
+
+            const w = bottle.width;
+            const h = bottle.height;
+
+            // بدنه پلاستیکی
+            ctx.fillStyle = bottle.color;
+            ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+            ctx.lineWidth = 2;
+            
+            // کشیدن بطری (مرکز در 0,0)
+            ctx.beginPath();
+            ctx.roundRect(-w/2, -h/2, w, h, 5);
+            ctx.fill();
+            ctx.stroke();
+
+            // آب داخل بطری
+            // شبیه‌سازی حرکت آب: همیشه سعی می‌کند پایین بماند
+            // اما برای سادگی پرفورمنس، فقط یک مستطیل در پایین بطری می‌کشیم
+            ctx.fillStyle = bottle.waterColor;
+            let waterH = h * 0.4;
+            ctx.beginPath();
+            ctx.roundRect(-w/2 + 2, (h/2) - waterH - 2, w - 4, waterH, [2,2,4,4]);
+            ctx.fill();
+
+            // درپوش
+            ctx.fillStyle = bottle.capColor;
+            ctx.fillRect(-w/3, -h/2 - 8, w/1.5, 8);
+
+            // برچسب
+            ctx.fillStyle = 'rgba(255,255,255,0.8)';
+            ctx.fillRect(-w/2, -10, w, 20);
+            ctx.font = 'bold 10px Arial';
+            ctx.fillStyle = '#333';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('FLIP', 0, 0);
+
+            ctx.restore();
+        }
+
+        function drawTrajectory() {
+            // خط راهنمای ساده
+            const dx = dragStartX - dragCurrentX;
+            const dy = dragStartY - dragCurrentY;
+            
+            if(dy <= 0) return; // فقط وقتی به پایین می‌کشیم نشان بده
+
+            ctx.beginPath();
+            ctx.moveTo(bottle.x, bottle.y);
+            // خط معکوس جهت کشیدن (جهت پرتاب)
+            ctx.lineTo(bottle.x + dx, bottle.y + dy);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+            ctx.setLineDash([5, 5]);
+            ctx.lineWidth = 3;
+            ctx.stroke();
+            ctx.setLineDash([]);
+            
+            // دایره هدف
+            ctx.beginPath();
+            ctx.arc(bottle.x + dx, bottle.y + dy, 5, 0, Math.PI*2);
+            ctx.fillStyle = '#00ff87';
+            ctx.fill();
+        }
+
+        // شروع اولیه
+        init();
+
+    </script>
+</body>
+</html>

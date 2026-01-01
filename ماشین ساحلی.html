@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ماشین بازی ساحلی</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #333;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            touch-action: none; /* جلوگیری از زوم در موبایل */
+        }
+        canvas {
+            display: block;
+            margin: 0 auto;
+            background: #f4d03f; /* رنگ شن ساحل */
+        }
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+<canvas id="gameCanvas"></canvas>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // تنظیم سایز صفحه
+    function resize() {
+        canvas.width = window.innerWidth > 500 ? 400 : window.innerWidth;
+        canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    // وضعیت‌های بازی
+    let gameState = 'MENU'; // MENU, PLAYING, GAMEOVER
+    let score = 0;
+    let speed = 5;
+    let frameCount = 0;
+
+    // ماشین بازیکن
+    const car = {
+        x: canvas.width / 2 - 25,
+        y: canvas.height - 120,
+        width: 50,
+        height: 80,
+        color: '#ff007f' // صورتی نئونی
+    };
+
+    // موانع (سنگ‌ها)
+    let obstacles = [];
+    // سکه ها
+    let coins = [];
+
+    // کنترل‌ها
+    let isTouchActive = false;
+    let touchX = 0;
+
+    // گوش دادن به موس و تاچ
+    canvas.addEventListener('mousedown', (e) => handleInputStart(e.clientX));
+    canvas.addEventListener('mousemove', (e) => handleInputMove(e.clientX));
+    canvas.addEventListener('touchstart', (e) => handleInputStart(e.touches[0].clientX), {passive: false});
+    canvas.addEventListener('touchmove', (e) => {
+        e.preventDefault(); 
+        handleInputMove(e.touches[0].clientX);
+    }, {passive: false});
+
+    function handleInputStart(clientX) {
+        if (gameState === 'MENU' || gameState === 'GAMEOVER') {
+            resetGame();
+            gameState = 'PLAYING';
+        } else {
+            isTouchActive = true;
+            updateCarPosition(clientX);
+        }
+    }
+
+    function handleInputMove(clientX) {
+        if (gameState === 'PLAYING' && isTouchActive) {
+            updateCarPosition(clientX);
+        }
+    }
+
+    function updateCarPosition(inputX) {
+        // محاسبه موقعیت نسبی در کانواس
+        const rect = canvas.getBoundingClientRect();
+        const relativeX = inputX - rect.left;
+        
+        car.x = relativeX - car.width / 2;
+
+        // محدود کردن ماشین داخل جاده
+        if (car.x < 20) car.x = 20;
+        if (car.x > canvas.width - 20 - car.width) car.x = canvas.width - 20 - car.width;
+    }
+
+    // ریست کردن بازی
+    function resetGame() {
+        score = 0;
+        speed = 5;
+        obstacles = [];
+        coins = [];
+        car.x = canvas.width / 2 - 25;
+    }
+
+    // --- توابع ترسیم ---
+
+    function drawRoad() {
+        // شن ساحل (Background)
+        ctx.fillStyle = '#f4e7be'; 
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // دریا سمت چپ
+        ctx.fillStyle = '#4cc9f0';
+        ctx.fillRect(0, 0, 20, canvas.height);
+        
+        // چمن سمت راست
+        ctx.fillStyle = '#4cc9f0';
+        ctx.fillRect(canvas.width - 20, 0, 20, canvas.height);
+
+        // خط‌کشی وسط جاده (متحرک)
+        ctx.strokeStyle = '#e9c46a';
+        ctx.lineWidth = 4;
+        ctx.setLineDash([20, 20]);
+        ctx.lineDashOffset = -frameCount * speed;
+        ctx.beginPath();
+        ctx.moveTo(canvas.width / 2, 0);
+        ctx.lineTo(canvas.width / 2, canvas.height);
+        ctx.stroke();
+        ctx.setLineDash([]);
+    }
+
+    function drawCar(x, y, w, h) {
+        // بدنه اصلی
+        ctx.fillStyle = car.color;
+        ctx.beginPath();
+        ctx.roundRect(x, y, w, h, 10);
+        ctx.fill();
+
+        // سقف
+        ctx.fillStyle = '#a1005b'; // تیره تر
+        ctx.beginPath();
+        ctx.roundRect(x + 5, y + 20, w - 10, h - 30, 5);
+        ctx.fill();
+
+        // شیشه جلو
+        ctx.fillStyle = '#8ecae6';
+        ctx.fillRect(x + 7, y + 25, w - 14, 15);
+
+        // چراغ ها
+        ctx.fillStyle = 'yellow';
+        ctx.beginPath();
+        ctx.arc(x + 10, y + 5, 4, 0, Math.PI * 2);
+        ctx.arc(x + w - 10, y + 5, 4, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    function drawObstacle(obs) {
+        // سنگ
+        ctx.fillStyle = '#6c757d';
+        ctx.beginPath();
+        ctx.arc(obs.x + obs.w/2, obs.y + obs.h/2, obs.w/2, 0, Math.PI * 2);
+        ctx.fill();
+        // سایه سنگ
+        ctx.fillStyle = 'rgba(0,0,0,0.2)';
+        ctx.beginPath();
+        ctx.arc(obs.x + obs.w/2 + 3, obs.y + obs.h/2 + 3, obs.w/2 - 2, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    function drawCoin(coin) {
+        ctx.fillStyle = '#ffd700'; // طلایی
+        ctx.beginPath();
+        ctx.arc(coin.x + 10, coin.y + 10, 10, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#daa520';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.fillStyle = '#fff';
+        ctx.font = '12px Arial';
+        ctx.fillText('$', coin.x + 6, coin.y + 14);
+    }
+
+    function drawMenu() {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.fillStyle = '#ff007f';
+        ctx.font = 'bold 30px Tahoma';
+        ctx.textAlign = 'center';
+        ctx.fillText('ماشین ساحلی', canvas.width / 2, canvas.height / 2 - 50);
+
+        ctx.fillStyle = 'white';
+        ctx.font = '18px Tahoma';
+        ctx.fillText('برای شروع کلیک کنید', canvas.width / 2, canvas.height / 2 + 20);
+        
+        ctx.font = '14px Tahoma';
+        ctx.fillStyle = '#aaa';
+        ctx.fillText('کنترل با موس یا لمس صفحه', canvas.width / 2, canvas.height / 2 + 60);
+    }
+
+    function drawGameOver() {
+        ctx.fillStyle = 'rgba(50, 0, 0, 0.8)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.fillStyle = '#ff4d4d';
+        ctx.font = 'bold 35px Tahoma';
+        ctx.textAlign = 'center';
+        ctx.fillText('باختی!', canvas.width / 2, canvas.height / 2 - 40);
+
+        ctx.fillStyle = 'white';
+        ctx.font = '20px Tahoma';
+        ctx.fillText('امتیاز: ' + score, canvas.width / 2, canvas.height / 2 + 10);
+
+        ctx.fillStyle = '#4cc9f0';
+        ctx.font = '18px Tahoma';
+        ctx.fillText('کلیک کن تا دوباره بازی کنی', canvas.width / 2, canvas.height / 2 + 60);
+    }
+
+    function drawScore() {
+        ctx.fillStyle = '#333';
+        ctx.fillRect(10, 10, 100, 30);
+        ctx.fillStyle = '#fff';
+        ctx.font = '16px Arial';
+        ctx.textAlign = 'left';
+        ctx.fillText('Score: ' + score, 20, 30);
+    }
+
+    // --- منطق بازی ---
+
+    function updateGame() {
+        frameCount++;
+        
+        // افزایش سرعت به مرور زمان
+        if (frameCount % 600 === 0) speed += 0.5;
+
+        // تولید مانع
+        if (Math.random() < 0.02) {
+            obstacles.push({
+                x: Math.random() * (canvas.width - 60) + 20,
+                y: -50,
+                w: 40,
+                h: 40
+            });
+        }
+
+        // تولید سکه
+        if (Math.random() < 0.03) {
+            coins.push({
+                x: Math.random() * (canvas.width - 60) + 20,
+                y: -50,
+                w: 20,
+                h: 20
+            });
+        }
+
+        // حرکت موانع
+        for (let i = 0; i < obstacles.length; i++) {
+            let obs = obstacles[i];
+            obs.y += speed;
+
+            // برخورد با مانع
+            if (
+                car.x < obs.x + obs.w &&
+                car.x + car.width > obs.x &&
+                car.y < obs.y + obs.h &&
+                car.y + car.height > obs.y
+            ) {
+                gameState = 'GAMEOVER';
+                // افکت لرزش (ساده)
+                canvas.style.transform = 'translate(5px, 5px)';
+                setTimeout(() => canvas.style.transform = 'translate(0,0)', 100);
+            }
+        }
+
+        // حرکت سکه ها
+        for (let i = 0; i < coins.length; i++) {
+            let c = coins[i];
+            c.y += speed;
+
+            // برخورد با سکه
+            if (
+                car.x < c.x + c.w &&
+                car.x + car.width > c.x &&
+                car.y < c.y + c.h &&
+                car.y + car.height > c.y
+            ) {
+                score += 10;
+                coins.splice(i, 1);
+                i--;
+            }
+        }
+
+        // حذف آیتم‌های خارج شده
+        obstacles = obstacles.filter(o => o.y < canvas.height);
+        coins = coins.filter(c => c.y < canvas.height);
+    }
+
+    // حلقه اصلی بازی
+    function loop() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        drawRoad();
+
+        if (gameState === 'MENU') {
+            drawCar(canvas.width/2 - 25, canvas.height - 120, 50, 80); // نمایش ماشین دمو
+            drawMenu();
+        } else if (gameState === 'PLAYING') {
+            updateGame();
+            
+            // رسم آیتم ها
+            coins.forEach(drawCoin);
+            obstacles.forEach(drawObstacle);
+            drawCar(car.x, car.y, car.width, car.height);
+            drawScore();
+
+        } else if (gameState === 'GAMEOVER') {
+            coins.forEach(drawCoin);
+            obstacles.forEach(drawObstacle);
+            drawCar(car.x, car.y, car.width, car.height);
+            drawGameOver();
+        }
+
+        requestAnimationFrame(loop);
+    }
+
+    loop();
+
+</script>
+</body>
+</html>
