@@ -48,7 +48,10 @@ body{
     backdrop-filter:blur(6px);
     color:var(--text);
 }
-.hero-word{font-weight:800}
+.hero-word{
+    font-weight:800;
+    color: black !important; /* تغییر رنگ به مشکی */
+}
 
 .search-container{
     position:fixed;
@@ -207,13 +210,25 @@ mark{
     padding:0 4px;
     border-radius:4px
 }
+
+/* تغییرات درخواستی برای نمایش 3 ستون در موبایل */
+@media (max-width: 768px) {
+    .games-grid:not(.horizontal-scroll) {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+/* تغییر رنگ اسم بازی‌ها به مشکی */
+.game-card span {
+    color: #000;
+}
 </style>
 </head>
 
 <body>
 
 <div class="top-text">
-    بپر تو دنیای وینول <span class="hero-word">قهرمان 🎮</span>
+    بپر تو دنیای وینول <span class="hero-word">قهرمان  🎮</span>
 </div>
 
 <div class="search-container">
@@ -612,4 +627,4 @@ renderFavoriteGames();
 </script>
 
 </body>
-              </html>
+    </html>
